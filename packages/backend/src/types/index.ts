@@ -1,34 +1,40 @@
 export interface WalkthroughStep {
   id: string;
-  target: string;
+  title: string;
   content: string;
-  position: 'top' | 'bottom' | 'left' | 'right';
+  target: string;
+  position?: 'top' | 'bottom' | 'left' | 'right';
   order: number;
-  pageUrl: string;
-  conditions?: {
-    userRole?: string[];
-    features?: string[];
-    previousSteps?: string[];
-  };
 }
 
-export interface WalkthroughFlow {
+export interface Walkthrough {
   id: string;
   name: string;
-  productId: string;
+  description: string;
   steps: WalkthroughStep[];
-  status: 'draft' | 'published';
   createdAt: Date;
   updatedAt: Date;
-  createdBy: string;
+  isActive: boolean;
 }
 
 export interface UserProgress {
+  id: string;
   userId: string;
   walkthroughId: string;
-  completedSteps: string[];
-  lastCompletedAt: Date;
-  status: 'in_progress' | 'completed' | 'skipped';
+  currentStep: number;
+  completed: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Analytics {
+  id: string;
+  walkthroughId: string;
+  userId: string;
+  stepId: string;
+  action: 'view' | 'complete' | 'skip';
+  timestamp: Date;
+  metadata?: Record<string, unknown>;
 }
 
 export interface User {
