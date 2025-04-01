@@ -4,10 +4,12 @@
 - [ ] Project Setup
   - [x] Initialize project structure
   - [x] Set up package.json
-  - [ ] Configure webpack
-  - [ ] Set up TypeScript
-  - [ ] Configure ESLint and Prettier
-  - [ ] Set up testing environment
+  - [x] Configure webpack
+  - [x] Set up TypeScript
+  - [x] Configure ESLint and Prettier
+  - [x] Set up testing environment
+  - [x] Initialize git repository
+  - [x] Create initial documentation
 
 - [ ] Core SDK Development
   - [ ] Create WalkthroughSDK class
@@ -69,7 +71,10 @@
 
 ## Phase 6: Testing and Optimization
 - [ ] Testing
-  - [ ] Write unit tests
+  - [x] Set up Jest configuration
+  - [x] Configure React Testing Library
+  - [x] Create basic test setup
+  - [ ] Write unit tests for core components
   - [ ] Add integration tests
   - [ ] Implement performance tests
   - [ ] Create end-to-end tests
@@ -82,10 +87,10 @@
 
 ## Phase 7: Release Preparation
 - [ ] Documentation
-  - [ ] Create README
+  - [x] Create README
   - [ ] Write API documentation
   - [ ] Add usage examples
-  - [ ] Create contribution guidelines
+  - [x] Create contribution guidelines
 
 - [ ] Release
   - [ ] Version control
@@ -93,11 +98,24 @@
   - [ ] Set up CI/CD
   - [ ] Prepare npm package
 
-## Current Sprint: Phase 1 - Project Setup
-- [x] Initialize project structure
-- [x] Create package.json
-- [ ] Set up webpack configuration
-- [ ] Configure TypeScript
-- [ ] Set up ESLint and Prettier
-- [ ] Initialize git repository
-- [ ] Create initial documentation 
+## Current Sprint: Phase 1 - Core SDK Development
+- [ ] Create WalkthroughSDK class
+  - [ ] Implement initialization
+  - [ ] Add configuration validation
+  - [ ] Create event system
+  - [ ] Write unit tests
+- [ ] Implement EventManager
+  - [ ] Create event registry
+  - [ ] Add event dispatching
+  - [ ] Implement event cleanup
+  - [ ] Write unit tests
+- [ ] Set up element targeting system
+  - [ ] Create element selector
+  - [ ] Implement position calculation
+  - [ ] Add validation
+  - [ ] Write unit tests
+- [ ] Create basic configuration system
+  - [ ] Define configuration schema
+  - [ ] Add validation
+  - [ ] Create default values
+  - [ ] Write unit tests 
