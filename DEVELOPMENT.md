@@ -91,233 +91,165 @@
     - [x] Add position adjustment
     - [x] Implement position caching
 
-## Phase 3: Admin Interface
-- [ ] Element Selection Tool
-  - [ ] Create element highlighter
-    - [ ] Implement highlight overlay
-    - [ ] Add highlight animation
-    - [ ] Create highlight styles
-    - [ ] Add highlight interaction
-  - [ ] Implement ID capture system
-    - [ ] Add ID generation
-    - [ ] Create ID validation
-    - [ ] Implement ID persistence
-    - [ ] Add ID management
-  - [ ] Add element metadata collection
-    - [ ] Create metadata schema
-    - [ ] Add metadata validation
-    - [ ] Implement metadata storage
-    - [ ] Add metadata retrieval
-  - [ ] Create element preview
-    - [ ] Add preview rendering
-    - [ ] Implement preview updates
-    - [ ] Add preview interaction
-    - [ ] Create preview styles
+## Phase 3: Self-Hosted Backend Infrastructure
+- [ ] Backend Core
+  - [x] Create `@walkthrough-sdk/backend` package
+    - [x] Design file-based storage schema with SQLite
+    - [x] Implement database initialization
+    - [x] Create WalkthroughRepository with CRUD operations
+    - [x] Create UserProgressRepository with CRUD operations
+    - [ ] Create AnalyticsRepository
+    - [ ] Add backup/restore system
+  - [ ] One-Command Setup
+    - [ ] `npx create-walkthrough-backend`
+    - [ ] Interactive setup wizard
+    - [ ] Auto-configuration
+    - [ ] Environment setup
+  - [ ] Docker Container
+    - [ ] Pre-configured image
+    - [ ] SQLite volume management
+    - [ ] Built-in monitoring
 
-- [ ] Admin Panel
-  - [ ] Build element list view
-    - [ ] Create list component
-    - [ ] Add sorting functionality
-    - [ ] Implement filtering
-    - [ ] Add search capability
-  - [ ] Create content editor
-    - [ ] Add rich text editor
-    - [ ] Implement markdown editor
-    - [ ] Add image upload
-    - [ ] Create content validation
-  - [ ] Implement flow sequence manager
-    - [ ] Create sequence editor
-    - [ ] Add drag-and-drop
-    - [ ] Implement sequence validation
-    - [ ] Add sequence persistence
-  - [ ] Add preview functionality
-    - [ ] Create preview mode
-    - [ ] Add step navigation
-    - [ ] Implement position testing
-    - [ ] Add preview controls
+- [ ] API Layer
+  - [ ] Core Endpoints
+    - [ ] Walkthrough CRUD
+      - [ ] POST /api/walkthroughs
+      - [ ] GET /api/walkthroughs
+      - [ ] GET /api/walkthroughs/:id
+      - [ ] PUT /api/walkthroughs/:id
+      - [ ] DELETE /api/walkthroughs/:id
+    - [ ] User progress tracking
+      - [ ] GET /api/progress/:userId
+      - [ ] PUT /api/progress/:userId/:walkthroughId
+    - [ ] Analytics collection
+    - [ ] Health status
+  - [ ] Simple Authentication
+    - [ ] API key validation
+    - [ ] Domain/origin validation
+    - [ ] Configuration through environment variables
+  - [ ] Documentation
+    - [ ] API reference
+    - [ ] Integration guide
+    - [ ] Example implementations
 
-## Phase 4: Flow Management
-- [ ] Flow Control System
-  - [ ] Implement step sequencing
-    - [ ] Create sequence manager
-    - [ ] Add sequence validation
-    - [ ] Implement sequence persistence
-    - [ ] Add sequence recovery
-  - [ ] Create flow persistence
-    - [ ] Add local storage support
-    - [ ] Implement state management
-    - [ ] Add state recovery
-    - [ ] Create state validation
-  - [ ] Add progress tracking
-    - [ ] Create progress manager
-    - [ ] Add progress persistence
-    - [ ] Implement progress recovery
-    - [ ] Add progress analytics
-  - [ ] Implement flow validation
-    - [ ] Add step validation
-    - [ ] Create flow validation
-    - [ ] Implement error handling
-    - [ ] Add validation feedback
+## Phase 4: Quick-Start Admin Interface
+- [ ] Pre-built Admin Components
+  - [ ] Point-and-Click Editor
+    - [ ] Element selection overlay
+    - [ ] Visual step builder
+    - [ ] Real-time preview
+    - [ ] One-click publishing
+  - [ ] Visual Step Builder
+    - [ ] Click-to-select elements
+    - [ ] Drag-to-position popover
+    - [ ] Simple content editor
+    - [ ] Real-time preview
+  - [ ] Template System
+    - [ ] Pre-built walkthrough templates
+    - [ ] Common patterns library
+    - [ ] Quick-start guides
 
-- [ ] Flow Editing Features
-  - [ ] Add drag-and-drop reordering
-    - [ ] Create drag manager
-    - [ ] Add drop zones
-    - [ ] Implement reordering logic
-    - [ ] Add reorder validation
-  - [ ] Implement step insertion/deletion
-    - [ ] Add insertion UI
-    - [ ] Create deletion confirmation
-    - [ ] Implement step validation
-    - [ ] Add step recovery
-  - [ ] Create flow preview mode
-    - [ ] Add preview controls
-    - [ ] Implement step navigation
-    - [ ] Add position testing
-    - [ ] Create preview styles
-  - [ ] Add flow export/import
-    - [ ] Create export format
-    - [ ] Add import validation
-    - [ ] Implement data conversion
-    - [ ] Add error handling
+- [ ] No-Code Admin Panel
+  - [ ] Simple Mode (Default)
+    - [ ] Three-step wizard
+      1. Click elements
+      2. Add content
+      3. Preview & publish
+    - [ ] Drag-and-drop step ordering
+    - [ ] One-click publishing
+  - [ ] Advanced Mode (Optional)
+    - [ ] Custom conditions
+    - [ ] Advanced targeting
+    - [ ] Multi-page flows
 
-## Phase 5: Integration Layer
-- [ ] Integration API
-  - [ ] Create initialization API
-    - [ ] Add configuration validation
-    - [ ] Implement error handling
-    - [ ] Create initialization hooks
-    - [ ] Add initialization events
-  - [ ] Implement event hooks
-    - [ ] Create event system
-    - [ ] Add event validation
-    - [ ] Implement event handling
-    - [ ] Add event documentation
-  - [ ] Add customization options
-    - [ ] Create theme system
-    - [ ] Add style customization
-    - [ ] Implement component customization
-    - [ ] Add behavior customization
-  - [ ] Create configuration system
-    - [ ] Add configuration validation
-    - [ ] Implement configuration persistence
-    - [ ] Create configuration recovery
-    - [ ] Add configuration events
+- [ ] Admin Access Methods
+  - [ ] Quick Implementation
+    - [ ] Admin button component
+    - [ ] URL-based activation
+    - [ ] Keyboard shortcuts
+  - [ ] Built-in Authorization
+    - [ ] Domain-based access
+    - [ ] Role-based controls
+    - [ ] Email allowlist
 
-- [ ] Documentation and Examples
-  - [ ] Write API documentation
-    - [ ] Create API reference
-    - [ ] Add usage examples
-    - [ ] Implement code samples
-    - [ ] Add troubleshooting guide
-  - [ ] Create React integration example
-    - [ ] Add basic example
-    - [ ] Create advanced example
-    - [ ] Add custom component example
-    - [ ] Create theme example
-  - [ ] Add vanilla JS example
-    - [ ] Create basic example
-    - [ ] Add advanced example
-    - [ ] Implement custom integration
-    - [ ] Add performance example
-  - [ ] Create usage guides
-    - [ ] Add getting started guide
-    - [ ] Create best practices
-    - [ ] Add troubleshooting guide
-    - [ ] Create migration guide
+## Phase 5: Developer Integration
+- [ ] Simple Installation
+  - [ ] One-line setup
+  - [ ] Interactive configuration
+  - [ ] Auto-detection
+  - [ ] Quick start guide
 
-## Phase 6: Testing and Optimization
+- [ ] Cross-Page Support
+  - [ ] Automatic page tracking
+  - [ ] State persistence
+  - [ ] Progress management
+  - [ ] Path matching
+
+- [ ] Templates & Presets
+  - [ ] Common Walkthrough Patterns
+    - [ ] New User Onboarding
+    - [ ] Feature Introduction
+    - [ ] Product Tour
+    - [ ] Help Guide
+  - [ ] Quick-Start Templates
+    - [ ] Template loading system
+    - [ ] Preset management
+    - [ ] Custom template creation
+
+## Phase 6: Testing & Documentation
 - [ ] Testing
-  - [x] Set up Jest configuration
-  - [x] Configure React Testing Library
-  - [x] Create basic test setup
-  - [x] Write unit tests for core components
-  - [ ] Add integration tests
-    - [ ] Create component integration tests
-    - [ ] Add flow integration tests
-    - [ ] Implement event integration tests
-    - [ ] Add state integration tests
-  - [ ] Implement performance tests
-    - [ ] Add render performance tests
-    - [ ] Create memory leak tests
-    - [ ] Implement animation performance tests
-    - [ ] Add state management tests
-  - [ ] Create end-to-end tests
-    - [ ] Add basic flow tests
-    - [ ] Create complex flow tests
-    - [ ] Implement error scenario tests
-    - [ ] Add browser compatibility tests
+  - [x] Automated UI tests
+  - [x] Integration tests
+  - [x] Backend validation
+    - [x] WalkthroughRepository tests
+    - [x] UserProgressRepository tests
+    - [x] Schema validation tests
+  - [ ] Template verification
 
-- [ ] Optimization
-  - [ ] Optimize bundle size
-    - [ ] Implement code splitting
-    - [ ] Add tree shaking
-    - [ ] Create chunk optimization
-    - [ ] Add bundle analysis
-  - [ ] Improve performance
-    - [ ] Optimize render cycles
-    - [ ] Add memoization
-    - [ ] Implement lazy loading
-    - [ ] Create performance monitoring
-  - [ ] Add code splitting
-    - [ ] Create route-based splitting
-    - [ ] Add component-based splitting
-    - [ ] Implement dynamic imports
-    - [ ] Add loading states
-  - [ ] Implement caching
-    - [ ] Add state caching
-    - [ ] Create component caching
-    - [ ] Implement data caching
-    - [ ] Add cache invalidation
-
-## Phase 7: Release Preparation
 - [ ] Documentation
-  - [x] Create README
-  - [ ] Write API documentation
-    - [ ] Create API reference
-    - [ ] Add usage examples
-    - [ ] Implement code samples
-    - [ ] Add troubleshooting guide
-  - [ ] Add usage examples
-    - [ ] Create basic examples
-    - [ ] Add advanced examples
-    - [ ] Implement custom examples
-    - [ ] Add integration examples
-  - [x] Create contribution guidelines
+  - [x] Component registry (COMPONENTS.md)
+  - [x] Backend architecture documentation
+  - [ ] 5-minute quickstart
+  - [ ] Step-by-step guides
+  - [ ] Video tutorials
+  - [ ] Interactive examples
 
-- [ ] Release
-  - [ ] Version control
-    - [ ] Create versioning strategy
-    - [ ] Add changelog
-    - [ ] Implement semantic versioning
-    - [ ] Add release notes
-  - [ ] Set up CI/CD
-    - [ ] Add GitHub Actions
-    - [ ] Create deployment pipeline
-    - [ ] Implement automated testing
-    - [ ] Add release automation
-  - [ ] Prepare npm package
-    - [ ] Create package.json
-    - [ ] Add package documentation
-    - [ ] Implement package validation
-    - [ ] Add package testing
+## Current Sprint: Phase 3 & 4 Parallel Development
+- [ ] Backend Core
+  - [x] File-based storage implementation
+    - [x] SQLite schema design
+    - [x] Database initialization
+    - [x] WalkthroughRepository
+    - [x] UserProgressRepository
+    - [ ] AnalyticsRepository
+  - [ ] One-command setup
+  - [ ] Docker container
 
-## Current Sprint: Phase 3 - Admin Interface
-- [ ] Element Selection Tool
-  - [ ] Create element highlighter
-    - [ ] Implement highlight overlay
-    - [ ] Add highlight animation
-    - [ ] Create highlight styles
-    - [ ] Add highlight interaction
-  - [ ] Implement ID capture system
-    - [ ] Add ID generation
-    - [ ] Create ID validation
-    - [ ] Implement ID persistence
-    - [ ] Add ID management
+- [ ] Quick-Start Admin
+  - [ ] Point-and-click editor
+  - [ ] Visual step builder
+  - [ ] Template system
+
+## Success Metrics
+1. Backend setup time < 5 minutes
+2. First walkthrough creation < 10 minutes
+3. Zero configuration required for basic usage
+4. No developer intervention needed for content updates
 
 ## Current Issues
 - [x] Popover not appearing in Storybook when CTAs are clicked
   - [x] Debug WalkthroughProvider initialization
   - [x] Verify event handling in Storybook environment
   - [x] Check Popover component mounting logic
-  - [x] Ensure proper state management in Storybook context 
+  - [x] Ensure proper state management in Storybook context
+- [x] Skip button not dismissing walkthrough
+  - [x] Implement proper skip functionality in WalkthroughSDK
+  - [x] Add cleanup on skip
+  - [x] Ensure proper event handling for skip action
+- [ ] Backend setup automation
+  - [x] Implement file-based storage with SQLite
+  - [x] Create WalkthroughRepository
+  - [x] Create UserProgressRepository
+  - [ ] Create AnalyticsRepository
+  - [ ] Create backup/restore system
+- [ ] Admin UI simplification 
