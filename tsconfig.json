@@ -14,14 +14,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "declaration": true,
-    "outDir": "dist",
-    "rootDir": "src",
+    "noEmit": true,
     "baseUrl": "src",
+    "types": ["react", "react-dom", "jest", "node"],
     "paths": {
       "@/*": ["*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+  "include": ["src", ".storybook"],
+  "exclude": ["node_modules"]
 } 

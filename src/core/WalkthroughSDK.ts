@@ -2,13 +2,13 @@ import { EventManager } from './EventManager';
 import { WalkthroughConfig, WalkthroughStep } from '../types';
 
 export class WalkthroughSDK {
-  private config: WalkthroughConfig;
+  private config: Omit<WalkthroughConfig, 'steps'>;
   private eventManager: EventManager;
   private targetElement: HTMLElement | null = null;
   private currentStepIndex: number = -1;
   private steps: WalkthroughStep[] = [];
 
-  constructor(config: WalkthroughConfig) {
+  constructor(config: Omit<WalkthroughConfig, 'steps'>) {
     this.config = {
       mode: 'presentation',
       defaultPosition: 'bottom',
@@ -44,6 +44,9 @@ export class WalkthroughSDK {
    * @param steps - Array of walkthrough steps
    */
   setSteps(steps: WalkthroughStep[]): void {
+    if (!steps || steps.length === 0) {
+      throw new Error('No steps defined');
+    }
     this.steps = steps;
     this.eventManager.emit('stepsUpdated', steps);
   }
@@ -56,8 +59,8 @@ export class WalkthroughSDK {
       throw new Error('No steps defined');
     }
     this.currentStepIndex = 0;
-    this.eventManager.emit('started');
     this.showCurrentStep();
+    this.eventManager.emit('started');
   }
 
   /**

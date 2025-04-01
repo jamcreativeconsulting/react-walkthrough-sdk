@@ -1,5 +1,6 @@
 export interface WalkthroughStep {
-  targetId: string;
+  id: string;
+  target: string;
   content: string;
   position?: 'top' | 'right' | 'bottom' | 'left';
   title?: string;
@@ -7,13 +8,17 @@ export interface WalkthroughStep {
 }
 
 export interface WalkthroughConfig {
-  target: string | HTMLElement;
+  steps: WalkthroughStep[];
+  target?: string | HTMLElement;
   mode?: 'admin' | 'presentation';
   onComplete?: () => void;
   onSkip?: () => void;
   onStepChange?: (stepIndex: number) => void;
   defaultPosition?: 'top' | 'right' | 'bottom' | 'left';
   skipable?: boolean;
+  position?: 'top' | 'right' | 'bottom' | 'left';
+  offset?: number;
+  zIndex?: number;
 }
 
 export interface EventCallback {
