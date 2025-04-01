@@ -11,75 +11,104 @@ A powerful and flexible SDK for creating interactive walkthroughs in React appli
 - ♿ Accessibility support
 - 📱 Responsive design
 - 🔄 Drag-and-drop flow editing
+- 💾 Self-hosted backend with SQLite storage
+- 🔒 User progress tracking
+- 🚀 Easy deployment
+
+## Project Structure
+
+The project is organized as a monorepo with the following packages:
+
+### Frontend (`packages/frontend`)
+- React components for walkthrough UI
+- State management
+- API integration
+
+### Backend (`packages/backend`)
+- SQLite database integration
+- RESTful API endpoints
+- Repository pattern for data access
+- User progress tracking
+- Walkthrough management
 
 ## Installation
 
 ```bash
-npm install react-walkthrough-sdk
-```
-
-## Quick Start
-
-```javascript
-import { WalkthroughSDK } from 'react-walkthrough-sdk';
-
-// Initialize the SDK
-const walkthrough = new WalkthroughSDK({
-  target: '#app',
-  mode: 'presentation'
-});
-
-// Define your walkthrough flow
-const flow = [
-  {
-    targetId: 'user-profile',
-    content: 'Click here to view your profile',
-    position: 'bottom'
-  },
-  {
-    targetId: 'settings-btn',
-    content: 'Access your settings here',
-    position: 'right'
-  }
-];
-
-// Start the walkthrough
-walkthrough.start(flow);
-```
-
-## Development
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- npm (v6 or higher)
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/react-walkthrough-sdk.git
-cd react-walkthrough-sdk
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies for all packages
 npm install
-```
 
-3. Start development server:
-```bash
-npm run dev
-```
-
-4. Build for production:
-```bash
+# Build all packages
 npm run build
 ```
 
-## Documentation
+## Backend Development
 
-For detailed documentation, please visit our [documentation site](https://docs.react-walkthrough-sdk.com).
+The backend is built with Node.js and uses SQLite for data storage. It implements a repository pattern for clean data access.
+
+### Database Schema
+
+The backend uses two main tables:
+- `walkthroughs`: Stores walkthrough definitions and metadata
+- `user_progress`: Tracks user completion status for walkthroughs
+
+### Repositories
+
+- `WalkthroughRepository`: Manages CRUD operations for walkthroughs
+- `UserProgressRepository`: Handles user progress tracking and updates
+
+### Running Backend Tests
+
+```bash
+cd packages/backend
+npm test
+```
+
+## Frontend Development
+
+```bash
+cd packages/frontend
+npm run dev
+```
+
+## API Documentation
+
+### Walkthrough Endpoints
+
+```typescript
+// Create a new walkthrough
+POST /api/walkthroughs
+Body: {
+  name: string;
+  steps: WalkthroughStep[];
+  metadata?: Record<string, any>;
+}
+
+// Get all walkthroughs
+GET /api/walkthroughs
+
+// Get walkthrough by ID
+GET /api/walkthroughs/:id
+
+// Update walkthrough
+PUT /api/walkthroughs/:id
+
+// Delete walkthrough
+DELETE /api/walkthroughs/:id
+```
+
+### User Progress Endpoints
+
+```typescript
+// Get user progress
+GET /api/progress/:userId
+
+// Update user progress
+PUT /api/progress/:userId/:walkthroughId
+Body: {
+  completed: boolean;
+  currentStep: number;
+}
+```
 
 ## Contributing
 
@@ -91,4 +120,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-If you encounter any issues or have questions, please file an issue on our [GitHub repository](https://github.com/yourusername/react-walkthrough-sdk/issues). 
+If you encounter any issues or have questions, please file an issue on our [GitHub repository](https://github.com/yourusername/react-walkthrough-sdk/issues).

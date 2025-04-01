@@ -51,6 +51,35 @@ This document tracks all components in the React Walkthrough SDK project.
   - Progress tracking
   - Flow validation
 
+## Backend Components
+
+### WalkthroughRepository
+- **Location**: `packages/backend/src/db/repositories/WalkthroughRepository.ts`
+- **Usage**: Manages walkthrough data in SQLite database
+- **Dependencies**: SQLite
+- **Special Considerations**:
+  - CRUD operations for walkthroughs
+  - Data validation
+  - Error handling
+
+### UserProgressRepository
+- **Location**: `packages/backend/src/db/repositories/UserProgressRepository.ts`
+- **Usage**: Manages user progress data
+- **Dependencies**: SQLite
+- **Special Considerations**:
+  - Progress tracking
+  - User state management
+  - Data consistency
+
+### Database Schema
+- **Location**: `packages/backend/src/db/schema.ts`
+- **Usage**: Defines database structure
+- **Dependencies**: None
+- **Special Considerations**:
+  - Table definitions
+  - Relationships
+  - Migrations
+
 ## Utility Components
 
 ### Positioning
@@ -72,6 +101,12 @@ This document tracks all components in the React Walkthrough SDK project.
   - State management
 
 ## Component Updates Log
+
+### 2024-04-01
+- Added backend components
+- Implemented SQLite database integration
+- Created WalkthroughRepository and UserProgressRepository
+- Added database schema
 
 ### 2024-03-19
 - Initial project setup

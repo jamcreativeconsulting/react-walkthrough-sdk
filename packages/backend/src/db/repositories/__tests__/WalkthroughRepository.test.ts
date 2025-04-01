@@ -2,9 +2,10 @@ import { DatabaseSchema } from '../../schema';
 import { WalkthroughRepository } from '../WalkthroughRepository';
 import { unlinkSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 
 describe('WalkthroughRepository', () => {
-  const testDbPath = join(__dirname, 'test.db');
+  const testDbPath = join(tmpdir(), 'test-walkthrough.db');
   let schema: DatabaseSchema;
   let repository: WalkthroughRepository;
 
