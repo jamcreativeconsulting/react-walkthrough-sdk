@@ -36,7 +36,7 @@ export class WalkthroughSDK {
     if (typeof this.config.target === 'string') {
       return document.querySelector(this.config.target);
     }
-    return this.config.target;
+    return this.config.target || null;
   }
 
   /**
@@ -149,5 +149,15 @@ export class WalkthroughSDK {
       index: this.currentStepIndex,
     });
     this.config.onStepChange?.(this.currentStepIndex);
+  }
+
+  /**
+   * Clean up resources and stop the walkthrough
+   */
+  destroy(): void {
+    this.eventManager.emit('destroyed');
+    this.currentStepIndex = -1;
+    this.steps = [];
+    this.targetElement = null;
   }
 } 

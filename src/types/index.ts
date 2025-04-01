@@ -21,6 +21,15 @@ export interface WalkthroughConfig {
   zIndex?: number;
 }
 
+export interface WalkthroughEvent {
+  type: 'stepChange' | 'complete' | 'skip' | 'error';
+  step?: WalkthroughStep;
+  stepIndex?: number;
+  error?: Error;
+}
+
+export type WalkthroughEventHandler = (event: WalkthroughEvent) => void;
+
 export interface EventCallback {
   (data?: any): void;
 }
