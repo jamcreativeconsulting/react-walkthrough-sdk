@@ -98,8 +98,8 @@
     - [x] Implement database initialization
     - [x] Create WalkthroughRepository with CRUD operations
     - [x] Create UserProgressRepository with CRUD operations
-    - [ ] Create AnalyticsRepository
-    - [ ] Add backup/restore system
+    - [x] Create AnalyticsRepository
+    - [x] Add backup/restore system
   - [ ] One-Command Setup
     - [ ] `npx create-walkthrough-backend`
     - [ ] Interactive setup wizard
@@ -221,7 +221,8 @@
     - [x] Database initialization
     - [x] WalkthroughRepository
     - [x] UserProgressRepository
-    - [ ] AnalyticsRepository
+    - [x] AnalyticsRepository
+    - [x] Backup/restore system
   - [ ] One-command setup
   - [ ] Docker container
 
@@ -250,6 +251,6 @@
   - [x] Implement file-based storage with SQLite
   - [x] Create WalkthroughRepository
   - [x] Create UserProgressRepository
-  - [ ] Create AnalyticsRepository
-  - [ ] Create backup/restore system
+  - [x] Create AnalyticsRepository
+  - [x] Create backup/restore system
 - [ ] Admin UI simplification 
