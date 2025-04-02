@@ -1,20 +1,28 @@
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3';
 import { Walkthrough, UserProgress, Analytics } from '../types';
 
 export class DatabaseSchema {
-  private db: Database.Database;
+  private db: sqlite3.Database;
 
   constructor(dbPath: string) {
-    this.db = new Database(dbPath);
+    this.db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        throw new Error(`Failed to open database: ${err.message}`);
+      }
+    });
     this.initializeSchema();
+  }
+
+  public getDb(): sqlite3.Database {
+    return this.db;
   }
 
   private initializeSchema(): void {
     // Enable foreign keys
-    this.db.pragma('foreign_keys = ON');
+    this.db.run('PRAGMA foreign_keys = ON');
 
     // Create walkthroughs table
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS walkthroughs (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -27,7 +35,7 @@ export class DatabaseSchema {
     `);
 
     // Create user_progress table
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS user_progress (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -41,7 +49,7 @@ export class DatabaseSchema {
     `);
 
     // Create analytics table
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS analytics (
         id TEXT PRIMARY KEY,
         walkthrough_id TEXT NOT NULL,
@@ -55,16 +63,22 @@ export class DatabaseSchema {
     `);
 
     // Create indexes
-    this.db.exec(`
+    this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_user_progress_user_walkthrough 
-      ON user_progress(user_id, walkthrough_id);
-      
+      ON user_progress(user_id, walkthrough_id)
+    `);
+
+    this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_analytics_walkthrough_user 
-      ON analytics(walkthrough_id, user_id);
+      ON analytics(walkthrough_id, user_id)
     `);
   }
 
   public close(): void {
-    this.db.close();
+    this.db.close((err) => {
+      if (err) {
+        console.error('Error closing database:', err);
+      }
+    });
   }
 } 

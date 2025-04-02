@@ -1,196 +1,164 @@
 import { DatabaseSchema } from '../../schema';
-import { UserProgressRepository } from '../UserProgressRepository';
 import { WalkthroughRepository } from '../WalkthroughRepository';
-import { unlinkSync } from 'fs';
-import { join } from 'path';
+import { UserProgressRepository } from '../UserProgressRepository';
+import { Walkthrough, UserProgress } from '../../models';
 import { tmpdir } from 'os';
+import { join } from 'path';
+import { unlinkSync, existsSync } from 'fs';
 
 describe('UserProgressRepository', () => {
-  const testDbPath = join(tmpdir(), 'test-progress.db');
   let schema: DatabaseSchema;
-  let repository: UserProgressRepository;
   let walkthroughRepository: WalkthroughRepository;
-  let walkthroughId: string;
+  let userProgressRepository: UserProgressRepository;
+  const testDbPath = join(tmpdir(), 'test.db');
 
-  beforeEach(async () => {
-    // Remove test database if it exists
-    try {
+  beforeEach(() => {
+    // Clean up any existing database file
+    if (existsSync(testDbPath)) {
       unlinkSync(testDbPath);
-    } catch (error) {
-      // Ignore if file doesn't exist
     }
     schema = new DatabaseSchema(testDbPath);
-    repository = new UserProgressRepository(schema['db']);
-    walkthroughRepository = new WalkthroughRepository(schema['db']);
-
-    // Create a test walkthrough
-    const walkthrough = walkthroughRepository.create({
-      name: 'Test Walkthrough',
-      description: 'Test Description',
-      steps: [
-        {
-          id: 'step-1',
-          title: 'Step 1',
-          content: 'Content 1',
-          target: '#target1',
-          order: 1
-        }
-      ],
-      isActive: true
-    });
-    walkthroughId = walkthrough.id;
+    walkthroughRepository = new WalkthroughRepository(schema.getDb());
+    userProgressRepository = new UserProgressRepository(schema.getDb());
   });
 
   afterEach(() => {
     schema.close();
-    try {
+    // Clean up the database file
+    if (existsSync(testDbPath)) {
       unlinkSync(testDbPath);
-    } catch (error) {
-      // Ignore if file doesn't exist
     }
   });
 
-  const sampleProgress = {
-    userId: 'user-1',
-    walkthroughId: 'will-be-replaced',
-    currentStep: 0,
-    completed: false
+  const sampleWalkthrough: Omit<Walkthrough, 'id' | 'createdAt' | 'updatedAt'> = {
+    name: 'Test Walkthrough',
+    description: 'Test Description',
+    steps: [
+      {
+        targetId: 'step1',
+        content: 'First step'
+      },
+      {
+        targetId: 'step2',
+        content: 'Second step'
+      }
+    ],
+    isActive: true
   };
 
-  it('should create user progress', () => {
-    const progress = repository.create({
-      ...sampleProgress,
-      walkthroughId
+  const createSampleProgress = async () => {
+    const walkthrough = walkthroughRepository.create(sampleWalkthrough);
+    const progress = userProgressRepository.create({
+      userId: 'test-user',
+      walkthroughId: walkthrough.id,
+      currentStep: 0,
+      completed: false
     });
-    
+    return { walkthrough, progress };
+  };
+
+  it('should create user progress', async () => {
+    const { walkthrough, progress } = await createSampleProgress();
+
     expect(progress.id).toBeDefined();
-    expect(progress.userId).toBe(sampleProgress.userId);
-    expect(progress.walkthroughId).toBe(walkthroughId);
-    expect(progress.currentStep).toBe(sampleProgress.currentStep);
-    expect(progress.completed).toBe(sampleProgress.completed);
-    expect(progress.createdAt).toBeDefined();
-    expect(progress.updatedAt).toBeDefined();
+    expect(progress.userId).toBe('test-user');
+    expect(progress.walkthroughId).toBe(walkthrough.id);
+    expect(progress.currentStep).toBe(0);
+    expect(progress.completed).toBe(false);
+    expect(progress.createdAt).toBeInstanceOf(Date);
+    expect(progress.updatedAt).toBeInstanceOf(Date);
   });
 
-  it('should find user progress by id', () => {
-    const created = repository.create({
-      ...sampleProgress,
-      walkthroughId
-    });
-    const found = repository.findById(created.id);
-    
-    expect(found).toBeDefined();
-    expect(found?.id).toBe(created.id);
-    expect(found?.userId).toBe(created.userId);
+  it('should find user progress by id', async () => {
+    const { progress } = await createSampleProgress();
+    const found = userProgressRepository.findById(progress.id);
+    expect(found).toEqual(progress);
   });
 
-  it('should find user progress by user and walkthrough', () => {
-    const created = repository.create({
-      ...sampleProgress,
-      walkthroughId
-    });
-    const found = repository.findByUserAndWalkthrough(created.userId, created.walkthroughId);
-    
-    expect(found).toBeDefined();
-    expect(found?.id).toBe(created.id);
-    expect(found?.userId).toBe(created.userId);
-    expect(found?.walkthroughId).toBe(created.walkthroughId);
+  it('should find user progress by user and walkthrough', async () => {
+    const { walkthrough, progress } = await createSampleProgress();
+    const found = userProgressRepository.findByUserAndWalkthrough('test-user', walkthrough.id);
+    expect(found).toEqual(progress);
   });
 
-  it('should find all progress by user', () => {
-    const progress1 = repository.create({
-      ...sampleProgress,
-      walkthroughId
-    });
-
+  it('should find all progress by user', async () => {
+    const { walkthrough } = await createSampleProgress();
     const walkthrough2 = walkthroughRepository.create({
-      name: 'Test Walkthrough 2',
-      description: 'Test Description 2',
-      steps: [],
-      isActive: true
+      ...sampleWalkthrough,
+      name: 'Test Walkthrough 2'
     });
 
-    const progress2 = repository.create({
-      ...sampleProgress,
-      walkthroughId: walkthrough2.id
+    const progress2 = userProgressRepository.create({
+      userId: 'test-user',
+      walkthroughId: walkthrough2.id,
+      currentStep: 1,
+      completed: true
     });
 
-    const allByUser = repository.findAllByUser(sampleProgress.userId);
-    
-    expect(allByUser).toHaveLength(2);
-    expect(allByUser.map(p => p.id).sort()).toEqual([progress1.id, progress2.id].sort());
+    const allProgress = userProgressRepository.findAllByUser('test-user');
+    expect(allProgress).toHaveLength(2);
+    expect(allProgress.map(p => p.walkthroughId).sort()).toEqual([walkthrough.id, walkthrough2.id].sort());
   });
 
-  it('should find all progress by walkthrough', () => {
-    const progress1 = repository.create({
-      ...sampleProgress,
-      walkthroughId,
-      userId: 'user-1'
+  it('should find all progress by walkthrough', async () => {
+    const { walkthrough } = await createSampleProgress();
+    const progress2 = userProgressRepository.create({
+      userId: 'test-user-2',
+      walkthroughId: walkthrough.id,
+      currentStep: 1,
+      completed: true
     });
 
-    const progress2 = repository.create({
-      ...sampleProgress,
-      walkthroughId,
-      userId: 'user-2'
-    });
-
-    const allByWalkthrough = repository.findAllByWalkthrough(walkthroughId);
-    
-    expect(allByWalkthrough).toHaveLength(2);
-    expect(allByWalkthrough.map(p => p.id).sort()).toEqual([progress1.id, progress2.id].sort());
+    const allProgress = userProgressRepository.findAllByWalkthrough(walkthrough.id);
+    expect(allProgress).toHaveLength(2);
+    expect(allProgress.map(p => p.userId).sort()).toEqual(['test-user', 'test-user-2'].sort());
   });
 
-  it('should update user progress', () => {
-    const created = repository.create({
-      ...sampleProgress,
-      walkthroughId
-    });
-
-    const updated = repository.update(created.id, {
+  it('should update user progress', async () => {
+    const { progress } = await createSampleProgress();
+    const updated = userProgressRepository.update(progress.id, {
       currentStep: 1,
       completed: true
     });
 
     expect(updated).toBeDefined();
-    expect(updated?.id).toBe(created.id);
-    expect(updated?.currentStep).toBe(1);
-    expect(updated?.completed).toBe(true);
+    expect(updated!.currentStep).toBe(1);
+    expect(updated!.completed).toBe(true);
+    expect(updated!.updatedAt).not.toEqual(progress.updatedAt);
   });
 
-  it('should delete user progress', () => {
-    const created = repository.create({
-      ...sampleProgress,
-      walkthroughId
-    });
-
-    const deleted = repository.delete(created.id);
+  it('should delete user progress', async () => {
+    const { progress } = await createSampleProgress();
+    const deleted = userProgressRepository.delete(progress.id);
     expect(deleted).toBe(true);
-    expect(repository.findById(created.id)).toBeNull();
+
+    const found = userProgressRepository.findById(progress.id);
+    expect(found).toBeNull();
   });
 
-  it('should delete all progress for a walkthrough', () => {
-    repository.create({
-      ...sampleProgress,
-      walkthroughId,
-      userId: 'user-1'
+  it('should delete all progress for a walkthrough', async () => {
+    const { walkthrough } = await createSampleProgress();
+    userProgressRepository.create({
+      userId: 'test-user-2',
+      walkthroughId: walkthrough.id,
+      currentStep: 1,
+      completed: true
     });
 
-    repository.create({
-      ...sampleProgress,
-      walkthroughId,
-      userId: 'user-2'
-    });
-
-    const deleted = repository.deleteAllByWalkthrough(walkthroughId);
+    const deleted = userProgressRepository.deleteAllByWalkthrough(walkthrough.id);
     expect(deleted).toBe(true);
-    expect(repository.findAllByWalkthrough(walkthroughId)).toHaveLength(0);
+
+    const allProgress = userProgressRepository.findAllByWalkthrough(walkthrough.id);
+    expect(allProgress).toHaveLength(0);
   });
 
-  it('should enforce foreign key constraint', () => {
+  it('should enforce foreign key constraint', async () => {
     expect(() => {
-      repository.create({
-        ...sampleProgress,
-        walkthroughId: 'non-existent'
+      userProgressRepository.create({
+        userId: 'test-user',
+        walkthroughId: 'non-existent-walkthrough',
+        currentStep: 0,
+        completed: false
       });
     }).toThrow();
   });

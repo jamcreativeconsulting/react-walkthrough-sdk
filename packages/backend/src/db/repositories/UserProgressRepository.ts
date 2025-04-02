@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3';
 import { UserProgress } from '../../types';
 
 interface UserProgressRow {
@@ -12,9 +12,9 @@ interface UserProgressRow {
 }
 
 export class UserProgressRepository {
-  private db: Database.Database;
+  private db: sqlite3.Database;
 
-  constructor(db: Database.Database) {
+  constructor(db: sqlite3.Database) {
     this.db = db;
   }
 
@@ -30,122 +30,183 @@ export class UserProgressRepository {
     };
   }
 
-  public create(progress: Omit<UserProgress, 'id' | 'createdAt' | 'updatedAt'>): UserProgress {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+  public create(progress: Omit<UserProgress, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserProgress> {
+    return new Promise((resolve, reject) => {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
-      INSERT INTO user_progress (
-        id, user_id, walkthrough_id, current_step, completed, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      progress.userId,
-      progress.walkthroughId,
-      progress.currentStep,
-      progress.completed ? 1 : 0,
-      now,
-      now
-    );
-
-    return this.findById(id)!;
+      this.db.run(
+        `INSERT INTO user_progress (
+          id, user_id, walkthrough_id, current_step, completed, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          progress.userId,
+          progress.walkthroughId,
+          progress.currentStep,
+          progress.completed ? 1 : 0,
+          now,
+          now
+        ],
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          this.findById(id)
+            .then(progress => {
+              if (!progress) {
+                reject(new Error('Failed to create user progress'));
+                return;
+              }
+              resolve(progress);
+            })
+            .catch(reject);
+        }
+      );
+    });
   }
 
-  public findById(id: string): UserProgress | null {
-    const stmt = this.db.prepare(`
-      SELECT * FROM user_progress WHERE id = ?
-    `);
-
-    const row = stmt.get(id) as UserProgressRow | undefined;
-    if (!row) return null;
-
-    return this.mapRowToUserProgress(row);
+  public findById(id: string): Promise<UserProgress | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT * FROM user_progress WHERE id = ?',
+        [id],
+        (err, row: UserProgressRow | undefined) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(row ? this.mapRowToUserProgress(row) : null);
+        }
+      );
+    });
   }
 
-  public findByUserAndWalkthrough(userId: string, walkthroughId: string): UserProgress | null {
-    const stmt = this.db.prepare(`
-      SELECT * FROM user_progress 
-      WHERE user_id = ? AND walkthrough_id = ?
-    `);
-
-    const row = stmt.get(userId, walkthroughId) as UserProgressRow | undefined;
-    if (!row) return null;
-
-    return this.mapRowToUserProgress(row);
+  public findByUserAndWalkthrough(userId: string, walkthroughId: string): Promise<UserProgress | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT * FROM user_progress WHERE user_id = ? AND walkthrough_id = ?',
+        [userId, walkthroughId],
+        (err, row: UserProgressRow | undefined) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(row ? this.mapRowToUserProgress(row) : null);
+        }
+      );
+    });
   }
 
-  public findAllByUser(userId: string): UserProgress[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM user_progress 
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-    `);
-
-    const rows = stmt.all(userId) as UserProgressRow[];
-    return rows.map(row => this.mapRowToUserProgress(row));
+  public findAllByUser(userId: string): Promise<UserProgress[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM user_progress WHERE user_id = ? ORDER BY created_at DESC',
+        [userId],
+        (err, rows: UserProgressRow[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows.map(row => this.mapRowToUserProgress(row)));
+        }
+      );
+    });
   }
 
-  public findAllByWalkthrough(walkthroughId: string): UserProgress[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM user_progress 
-      WHERE walkthrough_id = ?
-      ORDER BY created_at DESC
-    `);
-
-    const rows = stmt.all(walkthroughId) as UserProgressRow[];
-    return rows.map(row => this.mapRowToUserProgress(row));
+  public findAllByWalkthrough(walkthroughId: string): Promise<UserProgress[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM user_progress WHERE walkthrough_id = ? ORDER BY created_at DESC',
+        [walkthroughId],
+        (err, rows: UserProgressRow[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows.map(row => this.mapRowToUserProgress(row)));
+        }
+      );
+    });
   }
 
-  public update(id: string, progress: Partial<UserProgress>): UserProgress | null {
-    const existing = this.findById(id);
-    if (!existing) return null;
+  public update(id: string, progress: Partial<UserProgress>): Promise<UserProgress | null> {
+    return new Promise((resolve, reject) => {
+      this.findById(id)
+        .then(existing => {
+          if (!existing) {
+            resolve(null);
+            return;
+          }
 
-    const updates: string[] = [];
-    const values: any[] = [];
+          const updates: string[] = [];
+          const values: any[] = [];
 
-    if (progress.currentStep !== undefined) {
-      updates.push('current_step = ?');
-      values.push(progress.currentStep);
-    }
+          if (progress.currentStep !== undefined) {
+            updates.push('current_step = ?');
+            values.push(progress.currentStep);
+          }
 
-    if (progress.completed !== undefined) {
-      updates.push('completed = ?');
-      values.push(progress.completed ? 1 : 0);
-    }
+          if (progress.completed !== undefined) {
+            updates.push('completed = ?');
+            values.push(progress.completed ? 1 : 0);
+          }
 
-    updates.push('updated_at = ?');
-    values.push(new Date().toISOString());
+          updates.push('updated_at = ?');
+          values.push(new Date().toISOString());
 
-    values.push(id);
+          values.push(id);
 
-    const stmt = this.db.prepare(`
-      UPDATE user_progress 
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `);
-
-    stmt.run(...values);
-
-    return this.findById(id);
+          this.db.run(
+            `UPDATE user_progress 
+             SET ${updates.join(', ')}
+             WHERE id = ?`,
+            values,
+            (err) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+              this.findById(id)
+                .then(resolve)
+                .catch(reject);
+            }
+          );
+        })
+        .catch(reject);
+    });
   }
 
-  public delete(id: string): boolean {
-    const stmt = this.db.prepare(`
-      DELETE FROM user_progress WHERE id = ?
-    `);
-
-    const result = stmt.run(id);
-    return result.changes > 0;
+  public delete(id: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'DELETE FROM user_progress WHERE id = ?',
+        [id],
+        function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        }
+      );
+    });
   }
 
-  public deleteAllByWalkthrough(walkthroughId: string): boolean {
-    const stmt = this.db.prepare(`
-      DELETE FROM user_progress WHERE walkthrough_id = ?
-    `);
-
-    const result = stmt.run(walkthroughId);
-    return result.changes > 0;
+  public deleteAllByWalkthrough(walkthroughId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'DELETE FROM user_progress WHERE walkthrough_id = ?',
+        [walkthroughId],
+        function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        }
+      );
+    });
   }
 } 

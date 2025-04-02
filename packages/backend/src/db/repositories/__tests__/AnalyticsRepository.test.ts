@@ -1,7 +1,7 @@
 import { DatabaseSchema } from '../../schema';
 import { AnalyticsRepository } from '../AnalyticsRepository';
 import { WalkthroughRepository } from '../WalkthroughRepository';
-import { unlinkSync } from 'fs';
+import { unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -14,14 +14,12 @@ describe('AnalyticsRepository', () => {
 
   beforeEach(async () => {
     // Remove test database if it exists
-    try {
+    if (existsSync(testDbPath)) {
       unlinkSync(testDbPath);
-    } catch (error) {
-      // Ignore if file doesn't exist
     }
     schema = new DatabaseSchema(testDbPath);
-    repository = new AnalyticsRepository(schema['db']);
-    walkthroughRepository = new WalkthroughRepository(schema['db']);
+    repository = new AnalyticsRepository(schema.getDb());
+    walkthroughRepository = new WalkthroughRepository(schema.getDb());
 
     // Create a test walkthrough
     const walkthrough = walkthroughRepository.create({
@@ -29,11 +27,9 @@ describe('AnalyticsRepository', () => {
       description: 'Test Description',
       steps: [
         {
-          id: 'step-1',
-          title: 'Step 1',
+          targetId: 'step-1',
           content: 'Content 1',
-          target: '#target1',
-          order: 1
+          position: 'bottom'
         }
       ],
       isActive: true
@@ -43,10 +39,8 @@ describe('AnalyticsRepository', () => {
 
   afterEach(() => {
     schema.close();
-    try {
+    if (existsSync(testDbPath)) {
       unlinkSync(testDbPath);
-    } catch (error) {
-      // Ignore if file doesn't exist
     }
   });
 

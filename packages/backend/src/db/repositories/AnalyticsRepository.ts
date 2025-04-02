@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3';
 import { Analytics } from '../../types';
 
 interface AnalyticsRow {
@@ -12,9 +12,9 @@ interface AnalyticsRow {
 }
 
 export class AnalyticsRepository {
-  private db: Database.Database;
+  private db: sqlite3.Database;
 
-  constructor(db: Database.Database) {
+  constructor(db: sqlite3.Database) {
     this.db = db;
   }
 
@@ -30,110 +30,167 @@ export class AnalyticsRepository {
     };
   }
 
-  public create(analytics: Omit<Analytics, 'id'>): Analytics {
-    const id = crypto.randomUUID();
+  public create(analytics: Omit<Analytics, 'id'>): Promise<Analytics> {
+    return new Promise((resolve, reject) => {
+      const id = crypto.randomUUID();
 
-    const stmt = this.db.prepare(`
-      INSERT INTO analytics (
-        id, walkthrough_id, user_id, step_id, action, timestamp, metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      analytics.walkthroughId,
-      analytics.userId,
-      analytics.stepId,
-      analytics.action,
-      analytics.timestamp.toISOString(),
-      analytics.metadata ? JSON.stringify(analytics.metadata) : null
-    );
-
-    return this.findById(id)!;
+      this.db.run(
+        `INSERT INTO analytics (
+          id, walkthrough_id, user_id, step_id, action, timestamp, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          analytics.walkthroughId,
+          analytics.userId,
+          analytics.stepId,
+          analytics.action,
+          analytics.timestamp.toISOString(),
+          analytics.metadata ? JSON.stringify(analytics.metadata) : null
+        ],
+        (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          this.findById(id)
+            .then((result) => {
+              if (!result) {
+                reject(new Error('Failed to create analytics entry'));
+                return;
+              }
+              resolve(result);
+            })
+            .catch(reject);
+        }
+      );
+    });
   }
 
-  public findById(id: string): Analytics | null {
-    const stmt = this.db.prepare(`
-      SELECT * FROM analytics WHERE id = ?
-    `);
-
-    const row = stmt.get(id) as AnalyticsRow | undefined;
-    if (!row) return null;
-
-    return this.mapRowToAnalytics(row);
+  public findById(id: string): Promise<Analytics | null> {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT * FROM analytics WHERE id = ?',
+        [id],
+        (err, row: AnalyticsRow | undefined) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(row ? this.mapRowToAnalytics(row) : null);
+        }
+      );
+    });
   }
 
-  public findByWalkthrough(walkthroughId: string): Analytics[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM analytics 
-      WHERE walkthrough_id = ?
-      ORDER BY timestamp DESC
-    `);
-
-    const rows = stmt.all(walkthroughId) as AnalyticsRow[];
-    return rows.map(row => this.mapRowToAnalytics(row));
+  public findByWalkthrough(walkthroughId: string): Promise<Analytics[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM analytics WHERE walkthrough_id = ? ORDER BY timestamp DESC',
+        [walkthroughId],
+        (err, rows: AnalyticsRow[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows.map(row => this.mapRowToAnalytics(row)));
+        }
+      );
+    });
   }
 
-  public findByUser(userId: string): Analytics[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM analytics 
-      WHERE user_id = ?
-      ORDER BY timestamp DESC
-    `);
-
-    const rows = stmt.all(userId) as AnalyticsRow[];
-    return rows.map(row => this.mapRowToAnalytics(row));
+  public findByUser(userId: string): Promise<Analytics[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM analytics WHERE user_id = ? ORDER BY timestamp DESC',
+        [userId],
+        (err, rows: AnalyticsRow[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows.map(row => this.mapRowToAnalytics(row)));
+        }
+      );
+    });
   }
 
-  public findByUserAndWalkthrough(userId: string, walkthroughId: string): Analytics[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM analytics 
-      WHERE user_id = ? AND walkthrough_id = ?
-      ORDER BY timestamp DESC
-    `);
-
-    const rows = stmt.all(userId, walkthroughId) as AnalyticsRow[];
-    return rows.map(row => this.mapRowToAnalytics(row));
+  public findByUserAndWalkthrough(userId: string, walkthroughId: string): Promise<Analytics[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM analytics WHERE user_id = ? AND walkthrough_id = ? ORDER BY timestamp DESC',
+        [userId, walkthroughId],
+        (err, rows: AnalyticsRow[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows.map(row => this.mapRowToAnalytics(row)));
+        }
+      );
+    });
   }
 
-  public findByDateRange(startDate: Date, endDate: Date): Analytics[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM analytics 
-      WHERE timestamp BETWEEN ? AND ?
-      ORDER BY timestamp DESC
-    `);
-
-    const rows = stmt.all(
-      startDate.toISOString(),
-      endDate.toISOString()
-    ) as AnalyticsRow[];
-    return rows.map(row => this.mapRowToAnalytics(row));
+  public findByDateRange(startDate: Date, endDate: Date): Promise<Analytics[]> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT * FROM analytics WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp DESC',
+        [startDate.toISOString(), endDate.toISOString()],
+        (err, rows: AnalyticsRow[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(rows.map(row => this.mapRowToAnalytics(row)));
+        }
+      );
+    });
   }
 
-  public deleteByWalkthrough(walkthroughId: string): boolean {
-    const stmt = this.db.prepare(`
-      DELETE FROM analytics WHERE walkthrough_id = ?
-    `);
-
-    const result = stmt.run(walkthroughId);
-    return result.changes > 0;
+  public deleteByWalkthrough(walkthroughId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'DELETE FROM analytics WHERE walkthrough_id = ?',
+        [walkthroughId],
+        function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        }
+      );
+    });
   }
 
-  public deleteByUser(userId: string): boolean {
-    const stmt = this.db.prepare(`
-      DELETE FROM analytics WHERE user_id = ?
-    `);
-
-    const result = stmt.run(userId);
-    return result.changes > 0;
+  public deleteByUser(userId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'DELETE FROM analytics WHERE user_id = ?',
+        [userId],
+        function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        }
+      );
+    });
   }
 
-  public delete(id: string): boolean {
-    const stmt = this.db.prepare(`
-      DELETE FROM analytics WHERE id = ?
-    `);
-
-    const result = stmt.run(id);
-    return result.changes > 0;
+  public delete(id: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'DELETE FROM analytics WHERE id = ?',
+        [id],
+        function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        }
+      );
+    });
   }
 } 
