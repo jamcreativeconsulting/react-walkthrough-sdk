@@ -1,84 +1,166 @@
 import sqlite3 from 'sqlite3';
-import { Walkthrough, UserProgress, Analytics } from '../types';
+import { Database, Statement } from 'sqlite';
+import { open } from 'sqlite';
+import { logger } from '../utils/logger';
 
 export class DatabaseSchema {
-  private db: sqlite3.Database;
+  private db: Database | null = null;
+  private statements: Statement[] = [];
+  private isInitialized = false;
 
-  constructor(dbPath: string) {
-    this.db = new sqlite3.Database(dbPath, (err) => {
-      if (err) {
-        throw new Error(`Failed to open database: ${err.message}`);
+  constructor(private dbPath: string = process.env.DB_PATH || './database.sqlite') {}
+
+  async initializeSchema(): Promise<void> {
+    try {
+      logger.info('Initializing database schema...');
+      
+      // Open database connection
+      this.db = await open({
+        filename: this.dbPath,
+        driver: sqlite3.Database
+      });
+
+      // Enable foreign keys
+      await this.runQuery('PRAGMA foreign_keys = ON');
+
+      // Drop existing tables to ensure clean state
+      await this.runQuery('DROP TABLE IF EXISTS analytics');
+      await this.runQuery('DROP TABLE IF EXISTS user_progress');
+      await this.runQuery('DROP TABLE IF EXISTS walkthroughs');
+
+      // Create tables
+      await this.runQuery(`
+        CREATE TABLE IF NOT EXISTS walkthroughs (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          steps TEXT NOT NULL CHECK(json_valid(steps)),
+          isActive INTEGER NOT NULL DEFAULT 1 CHECK(isActive IN (0, 1)),
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL
+        )
+      `);
+
+      await this.runQuery(`
+        CREATE TABLE IF NOT EXISTS user_progress (
+          id TEXT PRIMARY KEY,
+          userId TEXT NOT NULL,
+          walkthroughId TEXT NOT NULL,
+          currentStep INTEGER NOT NULL CHECK(currentStep >= 0),
+          completed INTEGER NOT NULL CHECK(completed IN (0, 1)),
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          FOREIGN KEY (walkthroughId) REFERENCES walkthroughs(id) ON DELETE CASCADE
+        )
+      `);
+
+      await this.runQuery(`
+        CREATE TABLE IF NOT EXISTS analytics (
+          id TEXT PRIMARY KEY,
+          walkthroughId TEXT NOT NULL,
+          userId TEXT NOT NULL,
+          stepId TEXT NOT NULL,
+          action TEXT NOT NULL CHECK(action IN ('view', 'complete', 'skip')),
+          timestamp TEXT NOT NULL,
+          metadata TEXT CHECK(json_valid(metadata)),
+          FOREIGN KEY (walkthroughId) REFERENCES walkthroughs(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Verify tables were created
+      const tables = await this.db.all("SELECT name FROM sqlite_master WHERE type='table'");
+      logger.info('Database tables:', tables);
+      
+      if (!tables?.some(t => t.name === 'walkthroughs') || 
+          !tables?.some(t => t.name === 'user_progress') || 
+          !tables?.some(t => t.name === 'analytics')) {
+        throw new Error('Failed to create all required tables');
       }
-    });
-    this.initializeSchema();
+
+      this.isInitialized = true;
+      logger.info('Database schema initialized successfully');
+    } catch (error) {
+      logger.error('Error initializing database schema:', error);
+      throw error;
+    }
   }
 
-  public getDb(): sqlite3.Database {
+  private async runQuery(sql: string, params: any[] = []): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const stmt = await this.db.prepare(sql);
+      this.statements.push(stmt);
+      await stmt.run(params);
+    } catch (error) {
+      logger.error('Error executing query:', error);
+      throw error;
+    }
+  }
+
+  async reset(): Promise<void> {
+    try {
+      logger.info('Resetting database...');
+      
+      // Finalize all statements
+      await this.finalizeStatements();
+      
+      // Drop existing tables
+      await this.runQuery('DROP TABLE IF EXISTS analytics');
+      await this.runQuery('DROP TABLE IF EXISTS user_progress');
+      await this.runQuery('DROP TABLE IF EXISTS walkthroughs');
+      
+      // Reset initialization flag
+      this.isInitialized = false;
+      
+      // Reinitialize schema
+      await this.initializeSchema();
+      
+      logger.info('Database reset completed successfully');
+    } catch (error) {
+      logger.error('Error resetting database:', error);
+      throw error;
+    }
+  }
+
+  private async finalizeStatements(): Promise<void> {
+    for (const stmt of this.statements) {
+      try {
+        await stmt.finalize();
+      } catch (error) {
+        logger.error('Error finalizing statement:', error);
+      }
+    }
+    this.statements = [];
+  }
+
+  async close(): Promise<void> {
+    try {
+      logger.info('Closing database connection...');
+      
+      // Finalize all statements
+      await this.finalizeStatements();
+      
+      // Close database connection
+      if (this.db) {
+        await this.db.close();
+        this.db = null;
+      }
+      
+      this.isInitialized = false;
+      logger.info('Database connection closed successfully');
+    } catch (error) {
+      logger.error('Error closing database connection:', error);
+      throw error;
+    }
+  }
+
+  getDatabase(): Database {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     return this.db;
-  }
-
-  private initializeSchema(): void {
-    // Enable foreign keys
-    this.db.run('PRAGMA foreign_keys = ON');
-
-    // Create walkthroughs table
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS walkthroughs (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT NOT NULL,
-        steps TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create user_progress table
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS user_progress (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        walkthrough_id TEXT NOT NULL,
-        current_step INTEGER NOT NULL DEFAULT 0,
-        completed INTEGER NOT NULL DEFAULT 0,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (walkthrough_id) REFERENCES walkthroughs(id) ON DELETE CASCADE
-      )
-    `);
-
-    // Create analytics table
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS analytics (
-        id TEXT PRIMARY KEY,
-        walkthrough_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        step_id TEXT NOT NULL,
-        action TEXT NOT NULL,
-        timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        metadata TEXT,
-        FOREIGN KEY (walkthrough_id) REFERENCES walkthroughs(id) ON DELETE CASCADE
-      )
-    `);
-
-    // Create indexes
-    this.db.run(`
-      CREATE INDEX IF NOT EXISTS idx_user_progress_user_walkthrough 
-      ON user_progress(user_id, walkthrough_id)
-    `);
-
-    this.db.run(`
-      CREATE INDEX IF NOT EXISTS idx_analytics_walkthrough_user 
-      ON analytics(walkthrough_id, user_id)
-    `);
-  }
-
-  public close(): void {
-    this.db.close((err) => {
-      if (err) {
-        console.error('Error closing database:', err);
-      }
-    });
   }
 } 

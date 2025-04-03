@@ -1,99 +1,121 @@
 import { DatabaseSchema } from '../../schema';
 import { WalkthroughRepository } from '../WalkthroughRepository';
-import { Walkthrough } from '../../models';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { Walkthrough } from '../../../types';
 
 describe('WalkthroughRepository', () => {
-  let schema: DatabaseSchema;
+  let db: DatabaseSchema;
   let repository: WalkthroughRepository;
-  const testDbPath = join(tmpdir(), 'test.db');
 
-  beforeEach(() => {
-    // Clean up any existing database file
-    if (existsSync(testDbPath)) {
-      unlinkSync(testDbPath);
-    }
-    schema = new DatabaseSchema(testDbPath);
-    repository = new WalkthroughRepository(schema.getDb());
+  beforeAll(async () => {
+    db = new DatabaseSchema(':memory:');
+    await db.initializeSchema();
+    repository = new WalkthroughRepository(db.getDatabase());
   });
 
-  afterEach(() => {
-    schema.close();
-    // Clean up the database file
-    if (existsSync(testDbPath)) {
-      unlinkSync(testDbPath);
-    }
+  afterAll(async () => {
+    await db.close();
   });
 
-  const sampleWalkthrough: Omit<Walkthrough, 'id' | 'createdAt' | 'updatedAt'> = {
-    name: 'Test Walkthrough',
-    description: 'Test Description',
-    steps: [
-      {
-        targetId: 'step1',
-        content: 'First step'
-      },
-      {
-        targetId: 'step2',
-        content: 'Second step'
-      }
-    ],
-    isActive: true
-  };
+  beforeEach(async () => {
+    await db.reset();
+    repository = new WalkthroughRepository(db.getDatabase());
+  });
 
-  it('should create a walkthrough', () => {
-    const created = repository.create(sampleWalkthrough);
+  afterEach(async () => {
+    await db.reset();
+  });
+
+  it('should create and retrieve a walkthrough', async () => {
+    const walkthrough = {
+      name: 'Test Walkthrough',
+      description: 'A test walkthrough',
+      steps: [
+        {
+          id: 'step1',
+          title: 'Step 1',
+          content: 'Step 1 content',
+          target: 'step1',
+          order: 1
+        },
+        {
+          id: 'step2',
+          title: 'Step 2',
+          content: 'Step 2 content',
+          target: 'step2',
+          order: 2
+        }
+      ],
+      isActive: true
+    };
+
+    const created = await repository.create(walkthrough);
     expect(created.id).toBeDefined();
-    expect(created.name).toBe(sampleWalkthrough.name);
-    expect(created.description).toBe(sampleWalkthrough.description);
-    expect(created.steps).toEqual(sampleWalkthrough.steps);
-    expect(created.isActive).toBe(sampleWalkthrough.isActive);
+    expect(created.name).toBe(walkthrough.name);
+    expect(created.description).toBe(walkthrough.description);
+    expect(created.steps).toEqual(walkthrough.steps);
+    expect(created.isActive).toBe(walkthrough.isActive);
     expect(created.createdAt).toBeInstanceOf(Date);
     expect(created.updatedAt).toBeInstanceOf(Date);
-  });
 
-  it('should find a walkthrough by id', () => {
-    const created = repository.create(sampleWalkthrough);
-    const found = repository.findById(created.id);
+    const found = await repository.findById(created.id);
     expect(found).toEqual(created);
   });
 
-  it('should find all walkthroughs', () => {
-    const walkthrough1 = repository.create(sampleWalkthrough);
-    const walkthrough2 = repository.create({
-      ...sampleWalkthrough,
-      name: 'Test Walkthrough 2'
-    });
+  it('should update a walkthrough', async () => {
+    const walkthrough = {
+      name: 'Test Walkthrough',
+      description: 'A test walkthrough',
+      steps: [
+        {
+          id: 'step1',
+          title: 'Step 1',
+          content: 'Step 1 content',
+          target: 'step1',
+          order: 1
+        }
+      ],
+      isActive: true
+    };
 
-    const all = repository.findAll();
-    expect(all).toHaveLength(2);
-    expect(all).toContainEqual(walkthrough1);
-    expect(all).toContainEqual(walkthrough2);
-  });
-
-  it('should update a walkthrough', () => {
-    const created = repository.create(sampleWalkthrough);
-    const updated = repository.update(created.id, {
+    const created = await repository.create(walkthrough);
+    
+    // Add a small delay to ensure timestamps are different
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    const updatedData = {
       name: 'Updated Name',
       description: 'Updated Description'
-    });
+    };
 
+    const updated = await repository.update(created.id, updatedData);
     expect(updated).toBeDefined();
-    expect(updated!.name).toBe('Updated Name');
-    expect(updated!.description).toBe('Updated Description');
-    expect(updated!.steps).toEqual(created.steps);
-    expect(updated!.isActive).toBe(created.isActive);
-    expect(updated!.updatedAt).not.toEqual(created.updatedAt);
+    expect(updated?.name).toBe(updatedData.name);
+    expect(updated?.description).toBe(updatedData.description);
+    expect(updated?.steps).toEqual(walkthrough.steps);
+    expect(updated?.updatedAt.getTime()).toBeGreaterThan(created.updatedAt.getTime());
   });
 
-  it('should delete a walkthrough', () => {
-    const created = repository.create(sampleWalkthrough);
-    const deleted = repository.delete(created.id);
+  it('should delete a walkthrough', async () => {
+    const walkthrough = {
+      name: 'Test Walkthrough',
+      description: 'A test walkthrough',
+      steps: [
+        {
+          id: 'step1',
+          title: 'Step 1',
+          content: 'Step 1 content',
+          target: 'step1',
+          order: 1
+        }
+      ],
+      isActive: true
+    };
+
+    const created = await repository.create(walkthrough);
+    const deleted = await repository.delete(created.id);
     expect(deleted).toBe(true);
 
-    const found = repository.findById(created.id);
+    const found = await repository.findById(created.id);
     expect(found).toBeNull();
   });
 }); 

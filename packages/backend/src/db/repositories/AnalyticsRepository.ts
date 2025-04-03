@@ -1,196 +1,137 @@
-import sqlite3 from 'sqlite3';
+import { Database } from 'sqlite';
 import { Analytics } from '../../types';
 
-interface AnalyticsRow {
+interface Row {
   id: string;
-  walkthrough_id: string;
-  user_id: string;
-  step_id: string;
+  walkthroughId: string;
+  userId: string;
+  stepId: string;
   action: string;
   timestamp: string;
-  metadata: string | null;
+  metadata: string;
 }
 
 export class AnalyticsRepository {
-  private db: sqlite3.Database;
+  constructor(private db: Database) {}
 
-  constructor(db: sqlite3.Database) {
-    this.db = db;
-  }
+  async create(analytics: Omit<Analytics, 'id' | 'timestamp'>): Promise<Analytics> {
+    const id = Math.random().toString(36).substring(7);
+    const now = new Date();
 
-  private mapRowToAnalytics(row: AnalyticsRow): Analytics {
+    const row: Row = {
+      id,
+      walkthroughId: analytics.walkthroughId,
+      userId: analytics.userId,
+      stepId: analytics.stepId,
+      action: analytics.action,
+      timestamp: now.toISOString(),
+      metadata: JSON.stringify(analytics.metadata || {})
+    };
+
+    await this.db.run(
+      'INSERT INTO analytics (id, walkthroughId, userId, stepId, action, timestamp, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [row.id, row.walkthroughId, row.userId, row.stepId, row.action, row.timestamp, row.metadata]
+    );
+
     return {
       id: row.id,
-      walkthroughId: row.walkthrough_id,
-      userId: row.user_id,
-      stepId: row.step_id,
-      action: row.action as 'view' | 'complete' | 'skip',
-      timestamp: new Date(row.timestamp),
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+      walkthroughId: row.walkthroughId,
+      userId: row.userId,
+      stepId: row.stepId,
+      action: analytics.action,
+      timestamp: now,
+      metadata: analytics.metadata
     };
   }
 
-  public create(analytics: Omit<Analytics, 'id'>): Promise<Analytics> {
-    return new Promise((resolve, reject) => {
-      const id = crypto.randomUUID();
+  async findById(id: string): Promise<Analytics | null> {
+    const row = await this.db.get<Row>(
+      'SELECT * FROM analytics WHERE id = ?',
+      [id]
+    );
 
-      this.db.run(
-        `INSERT INTO analytics (
-          id, walkthrough_id, user_id, step_id, action, timestamp, metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          analytics.walkthroughId,
-          analytics.userId,
-          analytics.stepId,
-          analytics.action,
-          analytics.timestamp.toISOString(),
-          analytics.metadata ? JSON.stringify(analytics.metadata) : null
-        ],
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          this.findById(id)
-            .then((result) => {
-              if (!result) {
-                reject(new Error('Failed to create analytics entry'));
-                return;
-              }
-              resolve(result);
-            })
-            .catch(reject);
-        }
-      );
-    });
+    if (!row) {
+      return null;
+    }
+
+    return {
+      id: row.id,
+      walkthroughId: row.walkthroughId,
+      userId: row.userId,
+      stepId: row.stepId,
+      action: row.action as Analytics['action'],
+      timestamp: new Date(row.timestamp),
+      metadata: JSON.parse(row.metadata)
+    };
   }
 
-  public findById(id: string): Promise<Analytics | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT * FROM analytics WHERE id = ?',
-        [id],
-        (err, row: AnalyticsRow | undefined) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row ? this.mapRowToAnalytics(row) : null);
-        }
-      );
-    });
+  async findByWalkthrough(walkthroughId: string): Promise<Analytics[]> {
+    const rows = await this.db.all<Row[]>(
+      'SELECT * FROM analytics WHERE walkthroughId = ? ORDER BY timestamp DESC',
+      [walkthroughId]
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      walkthroughId: row.walkthroughId,
+      userId: row.userId,
+      stepId: row.stepId,
+      action: row.action as Analytics['action'],
+      timestamp: new Date(row.timestamp),
+      metadata: JSON.parse(row.metadata)
+    }));
   }
 
-  public findByWalkthrough(walkthroughId: string): Promise<Analytics[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM analytics WHERE walkthrough_id = ? ORDER BY timestamp DESC',
-        [walkthroughId],
-        (err, rows: AnalyticsRow[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAnalytics(row)));
-        }
-      );
-    });
+  async findByUser(userId: string): Promise<Analytics[]> {
+    const rows = await this.db.all<Row[]>(
+      'SELECT * FROM analytics WHERE userId = ? ORDER BY timestamp DESC',
+      [userId]
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      walkthroughId: row.walkthroughId,
+      userId: row.userId,
+      stepId: row.stepId,
+      action: row.action as Analytics['action'],
+      timestamp: new Date(row.timestamp),
+      metadata: JSON.parse(row.metadata)
+    }));
   }
 
-  public findByUser(userId: string): Promise<Analytics[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM analytics WHERE user_id = ? ORDER BY timestamp DESC',
-        [userId],
-        (err, rows: AnalyticsRow[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAnalytics(row)));
-        }
-      );
-    });
+  async findByUserAndWalkthrough(userId: string, walkthroughId: string): Promise<Analytics[]> {
+    const rows = await this.db.all<Row[]>(
+      'SELECT * FROM analytics WHERE userId = ? AND walkthroughId = ? ORDER BY timestamp DESC',
+      [userId, walkthroughId]
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      walkthroughId: row.walkthroughId,
+      userId: row.userId,
+      stepId: row.stepId,
+      action: row.action as Analytics['action'],
+      timestamp: new Date(row.timestamp),
+      metadata: JSON.parse(row.metadata)
+    }));
   }
 
-  public findByUserAndWalkthrough(userId: string, walkthroughId: string): Promise<Analytics[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM analytics WHERE user_id = ? AND walkthrough_id = ? ORDER BY timestamp DESC',
-        [userId, walkthroughId],
-        (err, rows: AnalyticsRow[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAnalytics(row)));
-        }
-      );
-    });
+  async findAll(): Promise<Analytics[]> {
+    const rows = await this.db.all<Row[]>('SELECT * FROM analytics ORDER BY timestamp DESC');
+
+    return rows.map(row => ({
+      id: row.id,
+      walkthroughId: row.walkthroughId,
+      userId: row.userId,
+      stepId: row.stepId,
+      action: row.action as Analytics['action'],
+      timestamp: new Date(row.timestamp),
+      metadata: JSON.parse(row.metadata)
+    }));
   }
 
-  public findByDateRange(startDate: Date, endDate: Date): Promise<Analytics[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM analytics WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp DESC',
-        [startDate.toISOString(), endDate.toISOString()],
-        (err, rows: AnalyticsRow[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAnalytics(row)));
-        }
-      );
-    });
-  }
-
-  public deleteByWalkthrough(walkthroughId: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'DELETE FROM analytics WHERE walkthrough_id = ?',
-        [walkthroughId],
-        function(err) {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(this.changes > 0);
-        }
-      );
-    });
-  }
-
-  public deleteByUser(userId: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'DELETE FROM analytics WHERE user_id = ?',
-        [userId],
-        function(err) {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(this.changes > 0);
-        }
-      );
-    });
-  }
-
-  public delete(id: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'DELETE FROM analytics WHERE id = ?',
-        [id],
-        function(err) {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(this.changes > 0);
-        }
-      );
-    });
+  async delete(id: string): Promise<boolean> {
+    const result = await this.db.run('DELETE FROM analytics WHERE id = ?', [id]);
+    return result.changes !== undefined && result.changes > 0;
   }
 } 

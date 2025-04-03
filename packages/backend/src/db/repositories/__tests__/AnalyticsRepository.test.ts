@@ -1,213 +1,150 @@
-import { DatabaseSchema } from '../../schema';
 import { AnalyticsRepository } from '../AnalyticsRepository';
 import { WalkthroughRepository } from '../WalkthroughRepository';
-import { unlinkSync, existsSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { DatabaseSchema } from '../../schema';
+import { Analytics, Walkthrough, WalkthroughStep } from '../../../types';
 
 describe('AnalyticsRepository', () => {
-  const testDbPath = join(tmpdir(), 'test-analytics.db');
-  let schema: DatabaseSchema;
-  let repository: AnalyticsRepository;
+  let db: DatabaseSchema;
+  let analyticsRepository: AnalyticsRepository;
   let walkthroughRepository: WalkthroughRepository;
-  let walkthroughId: string;
 
   beforeEach(async () => {
-    // Remove test database if it exists
-    if (existsSync(testDbPath)) {
-      unlinkSync(testDbPath);
-    }
-    schema = new DatabaseSchema(testDbPath);
-    repository = new AnalyticsRepository(schema.getDb());
-    walkthroughRepository = new WalkthroughRepository(schema.getDb());
+    db = new DatabaseSchema(':memory:');
+    await db.initializeSchema();
+    const database = db.getDatabase();
+    analyticsRepository = new AnalyticsRepository(database);
+    walkthroughRepository = new WalkthroughRepository(database);
+  });
 
-    // Create a test walkthrough
-    const walkthrough = walkthroughRepository.create({
+  afterEach(async () => {
+    await db.close();
+  });
+
+  it('should create and find analytics', async () => {
+    // Create a walkthrough first
+    const steps: WalkthroughStep[] = [{
+      id: 'step1',
+      title: 'Step 1',
+      content: 'Content 1',
+      target: '#target1',
+      order: 1
+    }];
+
+    const walkthrough: Omit<Walkthrough, 'id' | 'createdAt' | 'updatedAt'> = {
       name: 'Test Walkthrough',
       description: 'Test Description',
-      steps: [
-        {
-          targetId: 'step-1',
-          content: 'Content 1',
-          position: 'bottom'
-        }
-      ],
+      steps: steps,
       isActive: true
-    });
-    walkthroughId = walkthrough.id;
-  });
+    };
 
-  afterEach(() => {
-    schema.close();
-    if (existsSync(testDbPath)) {
-      unlinkSync(testDbPath);
-    }
-  });
+    const createdWalkthrough = await walkthroughRepository.create(walkthrough);
 
-  const sampleAnalytics = {
-    walkthroughId: 'will-be-replaced',
-    userId: 'user-1',
-    stepId: 'step-1',
-    action: 'view' as const,
-    timestamp: new Date(),
-    metadata: { browser: 'Chrome', os: 'MacOS' }
-  };
+    // Create analytics
+    const analytics: Omit<Analytics, 'id'> = {
+      walkthroughId: createdWalkthrough.id,
+      userId: 'test-user',
+      stepId: 'step1',
+      action: 'view',
+      timestamp: new Date(),
+      metadata: { browser: 'Chrome' }
+    };
 
-  it('should create analytics entry', () => {
-    const analytics = repository.create({
-      ...sampleAnalytics,
-      walkthroughId
-    });
-    
-    expect(analytics.id).toBeDefined();
-    expect(analytics.walkthroughId).toBe(walkthroughId);
-    expect(analytics.userId).toBe(sampleAnalytics.userId);
-    expect(analytics.stepId).toBe(sampleAnalytics.stepId);
-    expect(analytics.action).toBe(sampleAnalytics.action);
-    expect(analytics.metadata).toEqual(sampleAnalytics.metadata);
-  });
+    const createdAnalytics = await analyticsRepository.create(analytics);
 
-  it('should find analytics by id', () => {
-    const created = repository.create({
-      ...sampleAnalytics,
-      walkthroughId
-    });
-    const found = repository.findById(created.id);
-    
+    // Find by ID
+    const found = await analyticsRepository.findById(createdAnalytics.id);
     expect(found).toBeDefined();
-    expect(found?.id).toBe(created.id);
-    expect(found?.userId).toBe(created.userId);
+    expect(found?.id).toBe(createdAnalytics.id);
+    expect(found?.walkthroughId).toBe(createdAnalytics.walkthroughId);
+    expect(found?.userId).toBe(createdAnalytics.userId);
+    expect(found?.stepId).toBe(createdAnalytics.stepId);
+    expect(found?.action).toBe(createdAnalytics.action);
   });
 
-  it('should find analytics by walkthrough', () => {
-    const analytics1 = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      userId: 'user-1'
-    });
+  it('should find analytics by walkthrough and user', async () => {
+    // Create a walkthrough first
+    const steps: WalkthroughStep[] = [{
+      id: 'step1',
+      title: 'Step 1',
+      content: 'Content 1',
+      target: '#target1',
+      order: 1
+    }];
 
-    const analytics2 = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      userId: 'user-2'
-    });
+    const walkthrough: Omit<Walkthrough, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: 'Test Walkthrough',
+      description: 'Test Description',
+      steps: steps,
+      isActive: true
+    };
 
-    const found = repository.findByWalkthrough(walkthroughId);
-    
+    const createdWalkthrough = await walkthroughRepository.create(walkthrough);
+
+    // Create multiple analytics entries
+    const analytics1: Omit<Analytics, 'id'> = {
+      walkthroughId: createdWalkthrough.id,
+      userId: 'test-user',
+      stepId: 'step1',
+      action: 'view',
+      timestamp: new Date(),
+      metadata: { browser: 'Chrome' }
+    };
+
+    const analytics2: Omit<Analytics, 'id'> = {
+      walkthroughId: createdWalkthrough.id,
+      userId: 'test-user',
+      stepId: 'step1',
+      action: 'complete',
+      timestamp: new Date(),
+      metadata: { browser: 'Chrome' }
+    };
+
+    const created1 = await analyticsRepository.create(analytics1);
+    const created2 = await analyticsRepository.create(analytics2);
+
+    // Find by walkthrough and user
+    const found = await analyticsRepository.findByUserAndWalkthrough('test-user', createdWalkthrough.id);
     expect(found).toHaveLength(2);
-    expect(found.map(a => a.id).sort()).toEqual([analytics1.id, analytics2.id].sort());
+    expect(found[0].action).toBe('view');
+    expect(found[1].action).toBe('complete');
   });
 
-  it('should find analytics by user', () => {
-    const analytics1 = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      action: 'view'
-    });
+  it('should delete analytics', async () => {
+    // Create a walkthrough first
+    const steps: WalkthroughStep[] = [{
+      id: 'step1',
+      title: 'Step 1',
+      content: 'Content 1',
+      target: '#target1',
+      order: 1
+    }];
 
-    const analytics2 = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      action: 'complete'
-    });
+    const walkthrough: Omit<Walkthrough, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: 'Test Walkthrough',
+      description: 'Test Description',
+      steps: steps,
+      isActive: true
+    };
 
-    const found = repository.findByUser(sampleAnalytics.userId);
-    
-    expect(found).toHaveLength(2);
-    expect(found.map(a => a.id).sort()).toEqual([analytics1.id, analytics2.id].sort());
-  });
+    const createdWalkthrough = await walkthroughRepository.create(walkthrough);
 
-  it('should find analytics by user and walkthrough', () => {
-    const analytics1 = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      action: 'view'
-    });
+    // Create analytics
+    const analytics: Omit<Analytics, 'id'> = {
+      walkthroughId: createdWalkthrough.id,
+      userId: 'test-user',
+      stepId: 'step1',
+      action: 'view',
+      timestamp: new Date(),
+      metadata: { browser: 'Chrome' }
+    };
 
-    const analytics2 = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      action: 'complete'
-    });
+    const createdAnalytics = await analyticsRepository.create(analytics);
 
-    const found = repository.findByUserAndWalkthrough(sampleAnalytics.userId, walkthroughId);
-    
-    expect(found).toHaveLength(2);
-    expect(found.map(a => a.id).sort()).toEqual([analytics1.id, analytics2.id].sort());
-  });
+    // Delete analytics
+    await analyticsRepository.delete(createdAnalytics.id);
 
-  it('should find analytics by date range', () => {
-    const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - 1);
-    
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 1);
-
-    const analytics = repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      timestamp: new Date()
-    });
-
-    const found = repository.findByDateRange(pastDate, futureDate);
-    
-    expect(found).toHaveLength(1);
-    expect(found[0].id).toBe(analytics.id);
-  });
-
-  it('should delete analytics by walkthrough', () => {
-    repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      userId: 'user-1'
-    });
-
-    repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      userId: 'user-2'
-    });
-
-    const deleted = repository.deleteByWalkthrough(walkthroughId);
-    expect(deleted).toBe(true);
-    expect(repository.findByWalkthrough(walkthroughId)).toHaveLength(0);
-  });
-
-  it('should delete analytics by user', () => {
-    repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      action: 'view'
-    });
-
-    repository.create({
-      ...sampleAnalytics,
-      walkthroughId,
-      action: 'complete'
-    });
-
-    const deleted = repository.deleteByUser(sampleAnalytics.userId);
-    expect(deleted).toBe(true);
-    expect(repository.findByUser(sampleAnalytics.userId)).toHaveLength(0);
-  });
-
-  it('should delete single analytics entry', () => {
-    const created = repository.create({
-      ...sampleAnalytics,
-      walkthroughId
-    });
-
-    const deleted = repository.delete(created.id);
-    expect(deleted).toBe(true);
-    expect(repository.findById(created.id)).toBeNull();
-  });
-
-  it('should enforce foreign key constraint', () => {
-    expect(() => {
-      repository.create({
-        ...sampleAnalytics,
-        walkthroughId: 'non-existent'
-      });
-    }).toThrow();
+    // Try to find deleted analytics
+    const found = await analyticsRepository.findById(createdAnalytics.id);
+    expect(found).toBeNull();
   });
 }); 

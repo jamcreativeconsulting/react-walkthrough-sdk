@@ -1,7 +1,10 @@
 export interface WalkthroughStep {
-  targetId: string;
+  id: string;
+  title: string;
   content: string;
-  position?: 'top' | 'right' | 'bottom' | 'left';
+  target: string;
+  position?: 'top' | 'bottom' | 'left' | 'right';
+  order: number;
 }
 
 export interface Walkthrough {
@@ -29,7 +32,7 @@ export interface Analytics {
   walkthroughId: string;
   userId: string;
   stepId: string;
-  action: 'start' | 'complete' | 'skip' | 'next' | 'previous';
+  action: 'view' | 'complete' | 'skip';
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 } 

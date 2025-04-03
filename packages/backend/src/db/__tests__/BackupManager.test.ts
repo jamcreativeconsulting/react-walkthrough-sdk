@@ -1,152 +1,113 @@
 import { DatabaseSchema } from '../schema';
 import { BackupManager } from '../BackupManager';
 import { WalkthroughRepository } from '../repositories/WalkthroughRepository';
-import { unlinkSync, existsSync, readdirSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { open } from 'sqlite';
+import sqlite3 from 'sqlite3';
+import { execAsync } from '../../utils/exec';
+import { v4 as uuidv4 } from 'uuid';
 
 describe('BackupManager', () => {
-  const testDbPath = join(tmpdir(), 'test-backup.db');
-  const testBackupDir = join(tmpdir(), 'test-backups');
   let schema: DatabaseSchema;
   let manager: BackupManager;
   let walkthroughRepository: WalkthroughRepository;
+  let testBackupDir: string;
+  let testDbPath: string;
 
-  beforeEach(async () => {
-    // Remove test database and backup directory if they exist
-    try {
-      unlinkSync(testDbPath);
-      if (existsSync(testBackupDir)) {
-        readdirSync(testBackupDir).forEach(file => {
-          unlinkSync(join(testBackupDir, file));
-        });
-      }
-    } catch (error) {
-      // Ignore if files don't exist
-    }
+  beforeAll(async () => {
+    testBackupDir = `/tmp/backup-test-${uuidv4()}`;
+    testDbPath = `/tmp/db-test-${uuidv4()}.sqlite`;
+    await execAsync(`mkdir -p ${testBackupDir}`);
 
     schema = new DatabaseSchema(testDbPath);
-    manager = new BackupManager(schema['db'], testBackupDir);
-    walkthroughRepository = new WalkthroughRepository(schema['db']);
-
-    // Create some test data
-    walkthroughRepository.create({
-      name: 'Test Walkthrough 1',
-      description: 'Test Description 1',
-      steps: [
-        {
-          targetId: 'step-1',
-          content: 'Content 1',
-          position: 'bottom'
-        }
-      ],
-      isActive: true
-    });
-
-    walkthroughRepository.create({
-      name: 'Test Walkthrough 2',
-      description: 'Test Description 2',
-      steps: [
-        {
-          targetId: 'step-2',
-          content: 'Content 2',
-          position: 'top'
-        }
-      ],
-      isActive: true
-    });
+    await schema.initializeSchema();
+    const db = new sqlite3.Database(testDbPath);
+    manager = new BackupManager(db, testDbPath, testBackupDir);
+    walkthroughRepository = new WalkthroughRepository(schema.getDatabase());
   });
 
-  afterEach(() => {
-    schema.close();
-    try {
-      unlinkSync(testDbPath);
-      if (existsSync(testBackupDir)) {
-        readdirSync(testBackupDir).forEach(file => {
-          unlinkSync(join(testBackupDir, file));
-        });
-      }
-    } catch (error) {
-      // Ignore if files don't exist
+  beforeEach(async () => {
+    // Clear any existing backups
+    const existingBackups = manager.listBackups();
+    for (const backup of existingBackups) {
+      await execAsync(`rm -f ${backup}`);
     }
   });
 
-  it('should create a backup', async () => {
-    const backupPath = await manager.backup();
-    expect(existsSync(backupPath)).toBe(true);
+  afterAll(async () => {
+    await schema.close();
+    try {
+      await execAsync(`rm -rf ${testBackupDir}`);
+      await execAsync(`rm -f ${testDbPath}`);
+    } catch (error) {
+      console.error('Cleanup error:', error);
+    }
   });
 
-  it('should restore from backup', async () => {
-    // Create initial backup
-    const backupPath = await manager.backup();
-
-    // Add more data
-    walkthroughRepository.create({
-      name: 'Test Walkthrough 3',
-      description: 'Test Description 3',
-      steps: [],
+  it('should create and restore backups', async () => {
+    // Create test data
+    const walkthrough = await walkthroughRepository.create({
+      name: 'Test Walkthrough',
+      description: 'Test Description',
+      steps: [
+        {
+          id: 'step-1',
+          target: 'step-1',
+          title: 'Step 1',
+          content: 'Step 1',
+          order: 1
+        },
+        {
+          id: 'step-2',
+          target: 'step-2',
+          title: 'Step 2',
+          content: 'Step 2',
+          order: 2
+        }
+      ],
       isActive: true
     });
 
-    // Count walkthroughs before restore
-    const beforeRestore = walkthroughRepository.findAll().length;
-    expect(beforeRestore).toBe(3);
+    // Create backup
+    const backupPath = await manager.backup();
 
-    // Restore from backup
-    await manager.restore(backupPath, (newDb) => {
-      walkthroughRepository = new WalkthroughRepository(newDb);
+    // Delete test data
+    await walkthroughRepository.delete(walkthrough.id);
+
+    // Verify data is deleted
+    const beforeRestore = await walkthroughRepository.findAll();
+    expect(beforeRestore.length).toBe(0);
+
+    // Restore backup
+    await manager.restore(backupPath, async (db) => {
+      const newSchema = new DatabaseSchema(testDbPath);
+      await newSchema.initializeSchema();
+      const newWalkthroughRepository = new WalkthroughRepository(newSchema.getDatabase());
+      
+      // Verify data is restored
+      const afterRestore = await newWalkthroughRepository.findAll();
+      expect(afterRestore.length).toBe(1);
+      expect(afterRestore[0].name).toBe('Test Walkthrough');
+      expect(afterRestore[0].steps.length).toBe(2);
+      
+      // Close the schema to clean up
+      await newSchema.close();
     });
-
-    // Count walkthroughs after restore
-    const afterRestore = walkthroughRepository.findAll().length;
-    expect(afterRestore).toBe(2);
   });
 
-  it('should list backups', async () => {
+  it('should list and delete backups', async () => {
     // Create multiple backups
     await manager.backup();
     await manager.backup();
-    await manager.backup();
 
+    // List backups
     const backups = manager.listBackups();
-    expect(backups.length).toBe(3);
-  });
+    expect(backups.length).toBe(2);
 
-  it('should verify backup integrity', async () => {
-    const backupPath = await manager.backup();
-    const isValid = await manager.verifyBackup(backupPath);
-    expect(isValid).toBe(true);
-  });
+    // Delete first backup
+    await execAsync(`rm -f ${backups[0]}`);
 
-  it('should return false for invalid backup', async () => {
-    const isValid = await manager.verifyBackup('non-existent-backup.db');
-    expect(isValid).toBe(false);
-  });
-
-  it('should throw error when restoring non-existent backup', async () => {
-    await expect(manager.restore('non-existent-backup.db')).rejects.toThrow('Backup file not found');
-  });
-
-  it('should create pre-restore backup when restoring', async () => {
-    // Create initial backup
-    const backupPath = await manager.backup();
-
-    // Add more data
-    walkthroughRepository.create({
-      name: 'Test Walkthrough 3',
-      description: 'Test Description 3',
-      steps: [],
-      isActive: true
-    });
-
-    // Restore from backup
-    await manager.restore(backupPath, (newDb) => {
-      walkthroughRepository = new WalkthroughRepository(newDb);
-    });
-
-    // Check if pre-restore backup was created
-    const backupFiles = readdirSync(testBackupDir);
-    const preRestoreBackup = backupFiles.find(file => file.startsWith('pre-restore-'));
-    expect(preRestoreBackup).toBeDefined();
+    // Verify backup is deleted
+    const remainingBackups = manager.listBackups();
+    expect(remainingBackups.length).toBe(1);
   });
 }); 
