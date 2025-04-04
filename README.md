@@ -1,72 +1,65 @@
-# React Walkthrough SDK
+# Walkthrough SDK
 
-A powerful and flexible walkthrough system for React applications.
+A React-based SDK for creating interactive walkthroughs and guided tours in web applications.
 
-## Quick Start
+## Packages
 
-### Backend Setup
+- `@walkthrough-sdk/core`: Core functionality and context provider
+- `@walkthrough-sdk/admin`: Admin interface for managing walkthroughs
+- `@walkthrough-sdk/admin-playground`: Example implementation of the admin interface
 
-The Walkthrough SDK includes a self-hosted backend with SQLite storage. To set it up:
+## Getting Started
 
-```bash
-# Install the setup tool globally
-npm install -g create-walkthrough-backend
+### Prerequisites
 
-# Run the setup wizard
-create-walkthrough-backend
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+### Development
+
+1. Build the core and admin packages:
+   ```bash
+   cd packages/core && npm run build
+   cd ../admin && npm run build
+   ```
+
+2. Start the admin playground:
+   ```bash
+   cd examples/admin-playground
+   npm install
+   npm start
+   ```
+
+The playground will be available at `http://localhost:3000`.
+
+## Project Structure
+
+```
+walkthrough-sdk/
+├── packages/
+│   ├── core/           # Core SDK functionality
+│   └── admin/          # Admin interface components
+├── examples/
+│   └── admin-playground/  # Example implementation
+└── README.md
 ```
 
-The setup wizard will guide you through:
-- Project configuration
-- Database setup
-- Security settings
-- Environment configuration
+## Contributing
 
-For detailed setup instructions, see the [Backend Setup Guide](packages/create-walkthrough-backend/README.md).
-
-### Frontend Integration
-
-1. Install the SDK:
-```bash
-npm install @walkthrough-sdk/react
-```
-
-2. Initialize the SDK in your app:
-```javascript
-import { WalkthroughProvider } from '@walkthrough-sdk/react';
-
-function App() {
-  return (
-    <WalkthroughProvider
-      apiUrl="http://localhost:3000"
-      apiKey="your-api-key"
-    >
-      {/* Your app components */}
-    </WalkthroughProvider>
-  );
-}
-```
-
-## Features
-
-- Interactive walkthroughs
-- Self-hosted backend
-- SQLite storage
-- Backup and restore
-- Analytics tracking
-- User progress management
-
-## Documentation
-
-- [Backend Setup](packages/create-walkthrough-backend/README.md)
-- [Component Registry](COMPONENTS.md)
-- [Development Guide](DEVELOPMENT.md)
-- [API Reference](docs/api.md)
-
-## Development
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for development setup and guidelines.
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-ISC
+This project is licensed under the MIT License.

@@ -1,0 +1,100 @@
+.point-and-click-editor {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  background-color: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.editor-toolbar button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-toolbar button:hover {
+  background-color: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.editor-toolbar button:disabled {
+  background-color: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.editor-toolbar button.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.editor-toolbar button.active:hover {
+  background-color: #2563eb;
+}
+
+/* Hide the preview panel in the floating editor */
+.step-preview {
+  display: none;
+}
+
+/* Element selection styles */
+.element-hover {
+  outline: 2px solid #3b82f6 !important;
+  cursor: pointer !important;
+  transition: outline 0.2s ease;
+  position: relative;
+  z-index: 999;
+}
+
+.element-hover:hover {
+  outline: 3px solid #2563eb !important;
+}
+
+/* Selected element styles */
+.element-selected {
+  outline: 2px solid #10b981 !important;
+  cursor: pointer !important;
+  transition: outline 0.2s ease;
+  position: relative;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.element-selected::after {
+  content: 'Selected';
+  position: absolute;
+  top: -20px;
+  left: 0;
+  background-color: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 1001;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

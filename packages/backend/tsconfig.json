@@ -1,19 +1,18 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "es2018",
     "module": "commonjs",
-    "lib": ["es2020"],
+    "lib": ["es2018", "esnext.asynciterable"],
+    "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
+    "types": ["node", "express", "sqlite3", "jest"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "declaration": true,
-    "sourceMap": true
+    "moduleResolution": "node"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
-} 
+  "exclude": ["node_modules"]
+}

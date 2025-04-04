@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Application } from 'express';
 import { DatabaseSchema } from './db/schema';
 import sqlite3 from 'sqlite3';
 import walkthroughRoutes from './routes/walkthroughs';
 import { validateApiKey, validateDomain } from './utils/authMiddleware';
 import config from './config';
 
-const app = express();
+const app: Application = express();
 const db = new DatabaseSchema(config.databasePath);
 
 // Add database instance to app
@@ -50,4 +50,4 @@ app.get('/health', (req, res) => {
   }
 });
 
-export default app; 
+export default app;

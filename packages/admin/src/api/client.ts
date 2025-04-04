@@ -1,4 +1,5 @@
 import { ApiClient, ApiConfig, ApiResponse, ApiError } from '../types/api';
+import { Step } from '../components/PointAndClickEditor/types';
 
 export class ApiClientImpl implements ApiClient {
   private config: ApiConfig;
@@ -81,5 +82,80 @@ export class ApiClientImpl implements ApiClient {
 
   clearApiKey(): void {
     this.config.apiKey = undefined;
+  }
+
+  async createStep(
+    walkthroughId: string,
+    step: Omit<Step, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Step> {
+    try {
+      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(step),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create step');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error creating step:', error);
+      throw error;
+    }
+  }
+
+  async updateStep(walkthroughId: string, stepId: string, step: Partial<Step>): Promise<Step> {
+    try {
+      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps/${stepId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(step),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update step');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error updating step:', error);
+      throw error;
+    }
+  }
+
+  async deleteStep(walkthroughId: string, stepId: string): Promise<void> {
+    try {
+      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps/${stepId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete step');
+      }
+    } catch (error) {
+      console.error('Error deleting step:', error);
+      throw error;
+    }
+  }
+
+  async getSteps(walkthroughId: string): Promise<Step[]> {
+    try {
+      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps`);
+
+      if (!response.ok) {
+        throw new Error('Failed to get steps');
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error getting steps:', error);
+      throw error;
+    }
   }
 }

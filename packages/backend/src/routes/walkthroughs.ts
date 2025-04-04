@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseSchema } from '../db/schema';
 import { Walkthrough, WalkthroughStep } from '../types';
 import { logger } from '../utils/logger';
 import { AppError } from '../utils/errorMiddleware';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // POST /api/walkthroughs
 router.post('/', async (req, res, next) => {
@@ -17,13 +17,18 @@ router.post('/', async (req, res, next) => {
     next(error);
     return;
   }
-  
+
   try {
     const { name, description, steps } = req.body;
 
     // Validate required fields
     if (!name || !description || !steps || !Array.isArray(steps)) {
-      next(new AppError('Missing required fields: name, description, and steps array are required', 400));
+      next(
+        new AppError(
+          'Missing required fields: name, description, and steps array are required',
+          400
+        )
+      );
       return;
     }
 
@@ -33,7 +38,9 @@ router.post('/', async (req, res, next) => {
     });
 
     if (!validSteps) {
-      next(new AppError('Invalid steps: each step must have title, content, target, and order', 400));
+      next(
+        new AppError('Invalid steps: each step must have title, content, target, and order', 400)
+      );
       return;
     }
 
@@ -44,7 +51,7 @@ router.post('/', async (req, res, next) => {
       steps,
       createdAt: new Date(),
       updatedAt: new Date(),
-      isActive: true
+      isActive: true,
     };
 
     // Begin transaction
@@ -63,7 +70,7 @@ router.post('/', async (req, res, next) => {
           JSON.stringify(walkthrough.steps),
           walkthrough.isActive ? 1 : 0,
           walkthrough.createdAt.toISOString(),
-          walkthrough.updatedAt.toISOString()
+          walkthrough.updatedAt.toISOString(),
         ]
       );
 
@@ -94,7 +101,7 @@ router.get('/', async (req, res, next) => {
     next(error);
     return;
   }
-  
+
   try {
     const walkthroughs = await db.all(`
       SELECT 
@@ -111,7 +118,7 @@ router.get('/', async (req, res, next) => {
       steps: JSON.parse(w.steps),
       isActive: w.isActive === 1,
       createdAt: new Date(w.createdAt),
-      updatedAt: new Date(w.updatedAt)
+      updatedAt: new Date(w.updatedAt),
     }));
 
     res.json(formattedWalkthroughs);
@@ -131,14 +138,17 @@ router.get('/:id', async (req, res, next) => {
     next(error);
     return;
   }
-  
+
   try {
-    const walkthrough = await db.get(`
+    const walkthrough = await db.get(
+      `
       SELECT 
         id, name, description, steps, isActive, createdAt, updatedAt
       FROM walkthroughs
       WHERE id = ?
-    `, [req.params.id]);
+    `,
+      [req.params.id]
+    );
 
     if (!walkthrough) {
       next(new AppError('Walkthrough not found', 404));
@@ -153,7 +163,7 @@ router.get('/:id', async (req, res, next) => {
       steps: JSON.parse(walkthrough.steps),
       isActive: walkthrough.isActive === 1,
       createdAt: new Date(walkthrough.createdAt),
-      updatedAt: new Date(walkthrough.updatedAt)
+      updatedAt: new Date(walkthrough.updatedAt),
     };
 
     res.json(formattedWalkthrough);
@@ -173,13 +183,18 @@ router.put('/:id', async (req, res, next) => {
     next(error);
     return;
   }
-  
+
   try {
     const { name, description, steps, isActive } = req.body;
 
     // Validate required fields
     if (!name || !description || !steps || !Array.isArray(steps)) {
-      next(new AppError('Missing required fields: name, description, and steps array are required', 400));
+      next(
+        new AppError(
+          'Missing required fields: name, description, and steps array are required',
+          400
+        )
+      );
       return;
     }
 
@@ -189,7 +204,9 @@ router.put('/:id', async (req, res, next) => {
     });
 
     if (!validSteps) {
-      next(new AppError('Invalid steps: each step must have title, content, target, and order', 400));
+      next(
+        new AppError('Invalid steps: each step must have title, content, target, and order', 400)
+      );
       return;
     }
 
@@ -223,7 +240,7 @@ router.put('/:id', async (req, res, next) => {
           JSON.stringify(steps),
           newIsActive ? 1 : 0,
           new Date().toISOString(),
-          req.params.id
+          req.params.id,
         ]
       );
 
@@ -231,10 +248,9 @@ router.put('/:id', async (req, res, next) => {
       await db.run('COMMIT');
 
       // Get updated walkthrough
-      const updatedWalkthrough = await db.get(
-        'SELECT * FROM walkthroughs WHERE id = ?',
-        [req.params.id]
-      );
+      const updatedWalkthrough = await db.get('SELECT * FROM walkthroughs WHERE id = ?', [
+        req.params.id,
+      ]);
 
       // Convert SQLite result to Walkthrough type
       const formattedWalkthrough = {
@@ -244,7 +260,7 @@ router.put('/:id', async (req, res, next) => {
         steps: JSON.parse(updatedWalkthrough.steps),
         isActive: updatedWalkthrough.isActive === 1,
         createdAt: new Date(updatedWalkthrough.createdAt),
-        updatedAt: new Date(updatedWalkthrough.updatedAt)
+        updatedAt: new Date(updatedWalkthrough.updatedAt),
       };
 
       logger.info(`Updated walkthrough with ID: ${req.params.id}`);
@@ -270,17 +286,16 @@ router.delete('/:id', async (req, res, next) => {
     logger.error('Error getting database:', error);
     throw error;
   }
-  
+
   try {
     // Begin transaction
     await db.run('BEGIN TRANSACTION');
 
     try {
       // Check if walkthrough exists
-      const existingWalkthrough = await db.get(
-        'SELECT id FROM walkthroughs WHERE id = ?',
-        [req.params.id]
-      );
+      const existingWalkthrough = await db.get('SELECT id FROM walkthroughs WHERE id = ?', [
+        req.params.id,
+      ]);
 
       if (!existingWalkthrough) {
         await db.run('ROLLBACK');
@@ -289,10 +304,7 @@ router.delete('/:id', async (req, res, next) => {
       }
 
       // Delete walkthrough
-      await db.run(
-        'DELETE FROM walkthroughs WHERE id = ?',
-        [req.params.id]
-      );
+      await db.run('DELETE FROM walkthroughs WHERE id = ?', [req.params.id]);
 
       // Commit transaction
       await db.run('COMMIT');
@@ -311,4 +323,4 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
-export default router; 
+export default router;
