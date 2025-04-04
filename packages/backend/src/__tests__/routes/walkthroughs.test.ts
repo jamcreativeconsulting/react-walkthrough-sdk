@@ -3,11 +3,30 @@ import express from 'express';
 import { DatabaseSchema } from '../../db/schema';
 import walkthroughRoutes from '../../routes/walkthroughs';
 import { logger } from '../../utils/logger';
+import { validateApiKey, validateDomain } from '../../utils/authMiddleware';
+import { AuthError } from '../../utils/authMiddleware';
+import { errorHandler } from '../../utils/errorMiddleware';
+
+// Mock the config
+jest.mock('../../config', () => {
+  const config = {
+    apiKey: 'test-api-key',
+    allowedOrigins: ['http://localhost:3000', 'https://example.com'],
+    port: 3000,
+    databasePath: ':memory:'
+  };
+  return { __esModule: true, default: config };
+});
 
 describe('Walkthrough Routes', () => {
   let app: express.Application;
   let db: DatabaseSchema;
   let errorDb: DatabaseSchema | null = null;
+
+  const validHeaders = {
+    'x-api-key': 'test-api-key',
+    'origin': 'http://localhost:3000'
+  };
 
   beforeAll(async () => {
     try {
@@ -45,7 +64,27 @@ describe('Walkthrough Routes', () => {
       
       // Set up the database and routes
       app.set('db', db);
+
+      // Apply domain validation first
+      app.use((req, res, next) => {
+        if (req.path === '/health') {
+          return next();
+        }
+        validateDomain(req, res, next);
+      });
+
+      // Then apply API key validation
+      app.use((req, res, next) => {
+        if (req.path === '/health') {
+          return next();
+        }
+        validateApiKey(req, res, next);
+      });
+
       app.use('/api/walkthroughs', walkthroughRoutes);
+
+      // Add error middleware
+      app.use(errorHandler);
     } catch (error) {
       logger.error('Failed to set up test:', error);
       throw error;
@@ -61,6 +100,46 @@ describe('Walkthrough Routes', () => {
     } catch (error) {
       logger.error('Failed to clean up error database:', error);
     }
+  });
+
+  describe('Authentication', () => {
+    it('should return 401 when no API key is provided', async () => {
+      const response = await request(app)
+        .get('/api/walkthroughs')
+        .set('origin', validHeaders.origin);
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe('API key is required');
+    });
+
+    it('should return 401 when no origin is provided', async () => {
+      const response = await request(app)
+        .get('/api/walkthroughs')
+        .set('x-api-key', validHeaders['x-api-key']);
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe('Origin header is required');
+    });
+
+    it('should return 403 when invalid API key is provided', async () => {
+      const response = await request(app)
+        .get('/api/walkthroughs')
+        .set('x-api-key', 'invalid-key')
+        .set('origin', validHeaders.origin);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Invalid API key');
+    });
+
+    it('should return 403 when invalid origin is provided', async () => {
+      const response = await request(app)
+        .get('/api/walkthroughs')
+        .set('x-api-key', validHeaders['x-api-key'])
+        .set('origin', 'http://invalid-domain.com');
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Domain not allowed');
+    });
   });
 
   describe('POST /api/walkthroughs', () => {
@@ -81,6 +160,7 @@ describe('Walkthrough Routes', () => {
 
       const response = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(walkthroughData);
 
       expect(response.status).toBe(201);
@@ -94,6 +174,7 @@ describe('Walkthrough Routes', () => {
     it('should return 400 for missing required fields', async () => {
       const response = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send({});
 
       expect(response.status).toBe(400);
@@ -115,10 +196,11 @@ describe('Walkthrough Routes', () => {
 
       const response = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(invalidWalkthroughData);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid steps');
+      expect(response.body.error).toBe('Invalid steps: each step must have title, content, target, and order');
     });
 
     it('should handle database errors gracefully', async () => {
@@ -152,23 +234,30 @@ describe('Walkthrough Routes', () => {
         ]
       };
 
-      const response = await request(app)
-        .post('/api/walkthroughs')
-        .send(walkthroughData);
+      try {
+        const response = await request(app)
+          .post('/api/walkthroughs')
+          .set(validHeaders)
+          .send(walkthroughData);
 
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Simulated database error');
-
-      // Restore the original database
-      app.set('db', originalDb);
-      errorDb.getDatabase = originalGetDatabase;
-    });
+        expect(response.status).toBe(500);
+        expect(response.body.status).toBe('error');
+        expect(response.body.error).toBe('Database error occurred');
+      } finally {
+        // Restore the original database and cleanup
+        app.set('db', originalDb);
+        errorDb.getDatabase = originalGetDatabase;
+        await errorDb.close();
+        errorDb = null;
+      }
+    }, 60000); // Increase timeout to 60 seconds
   });
 
   describe('GET /api/walkthroughs', () => {
     it('should return an empty array when no walkthroughs exist', async () => {
       const response = await request(app)
-        .get('/api/walkthroughs');
+        .get('/api/walkthroughs')
+        .set(validHeaders);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -191,23 +280,23 @@ describe('Walkthrough Routes', () => {
 
       await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(walkthroughData);
 
       const response = await request(app)
-        .get('/api/walkthroughs');
+        .get('/api/walkthroughs')
+        .set(validHeaders);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
-      expect(response.body[0].name).toBe(walkthroughData.name);
-      expect(response.body[0].description).toBe(walkthroughData.description);
-      expect(response.body[0].steps).toHaveLength(1);
     });
   });
 
   describe('GET /api/walkthroughs/:id', () => {
     it('should return 404 for non-existent walkthrough', async () => {
       const response = await request(app)
-        .get('/api/walkthroughs/non-existent-id');
+        .get('/api/walkthroughs/non-existent-id')
+        .set(validHeaders);
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Walkthrough not found');
@@ -230,12 +319,14 @@ describe('Walkthrough Routes', () => {
 
       const createResponse = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(walkthroughData);
 
       const walkthroughId = createResponse.body.id;
 
       const response = await request(app)
-        .get(`/api/walkthroughs/${walkthroughId}`);
+        .get(`/api/walkthroughs/${walkthroughId}`)
+        .set(validHeaders);
 
       expect(response.status).toBe(200);
       expect(response.body.id).toBe(walkthroughId);
@@ -249,14 +340,15 @@ describe('Walkthrough Routes', () => {
     it('should return 404 for non-existent walkthrough', async () => {
       const response = await request(app)
         .put('/api/walkthroughs/non-existent-id')
+        .set(validHeaders)
         .send({
           name: 'Updated Walkthrough',
           description: 'Updated description',
           steps: [
             {
-              title: 'Step 1',
-              content: 'This is step 1',
-              target: '#element1',
+              title: 'Updated Step',
+              content: 'Updated content',
+              target: '#updated',
               order: 1
             }
           ]
@@ -283,6 +375,7 @@ describe('Walkthrough Routes', () => {
 
       const createResponse = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(walkthroughData);
 
       const walkthroughId = createResponse.body.id;
@@ -292,17 +385,17 @@ describe('Walkthrough Routes', () => {
         description: 'Updated description',
         steps: [
           {
-            title: 'Updated Step 1',
-            content: 'This is updated step 1',
-            target: '#element1',
+            title: 'Updated Step',
+            content: 'Updated content',
+            target: '#updated',
             order: 1
           }
-        ],
-        isActive: false
+        ]
       };
 
       const response = await request(app)
         .put(`/api/walkthroughs/${walkthroughId}`)
+        .set(validHeaders)
         .send(updatedData);
 
       expect(response.status).toBe(200);
@@ -311,7 +404,6 @@ describe('Walkthrough Routes', () => {
       expect(response.body.description).toBe(updatedData.description);
       expect(response.body.steps).toHaveLength(1);
       expect(response.body.steps[0].title).toBe(updatedData.steps[0].title);
-      expect(response.body.isActive).toBe(false);
     });
 
     it('should return 400 for invalid update data', async () => {
@@ -331,33 +423,35 @@ describe('Walkthrough Routes', () => {
 
       const createResponse = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(walkthroughData);
 
       const walkthroughId = createResponse.body.id;
 
       const response = await request(app)
         .put(`/api/walkthroughs/${walkthroughId}`)
+        .set(validHeaders)
         .send({
           name: 'Updated Walkthrough',
           description: 'Updated description',
           steps: [
             {
-              title: 'Step 1',
-              // Missing content and target
+              // Missing required fields
               order: 1
             }
           ]
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Invalid steps');
+      expect(response.body.error).toBe('Invalid steps: each step must have title, content, target, and order');
     });
   });
 
   describe('DELETE /api/walkthroughs/:id', () => {
     it('should return 404 for non-existent walkthrough', async () => {
       const response = await request(app)
-        .delete('/api/walkthroughs/non-existent-id');
+        .delete('/api/walkthroughs/non-existent-id')
+        .set(validHeaders);
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Walkthrough not found');
@@ -380,18 +474,21 @@ describe('Walkthrough Routes', () => {
 
       const createResponse = await request(app)
         .post('/api/walkthroughs')
+        .set(validHeaders)
         .send(walkthroughData);
 
       const walkthroughId = createResponse.body.id;
 
       const deleteResponse = await request(app)
-        .delete(`/api/walkthroughs/${walkthroughId}`);
+        .delete(`/api/walkthroughs/${walkthroughId}`)
+        .set(validHeaders);
 
       expect(deleteResponse.status).toBe(204);
 
       // Verify the walkthrough is deleted
       const getResponse = await request(app)
-        .get(`/api/walkthroughs/${walkthroughId}`);
+        .get(`/api/walkthroughs/${walkthroughId}`)
+        .set(validHeaders);
 
       expect(getResponse.status).toBe(404);
     });

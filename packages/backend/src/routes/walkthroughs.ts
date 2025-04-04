@@ -3,19 +3,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseSchema } from '../db/schema';
 import { Walkthrough, WalkthroughStep } from '../types';
 import { logger } from '../utils/logger';
+import { AppError } from '../utils/errorMiddleware';
 
 const router = express.Router();
 
 // POST /api/walkthroughs
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   let db;
   try {
     db = (req.app.get('db') as DatabaseSchema).getDatabase();
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error getting database:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while accessing the database'
-    });
+    next(error);
+    return;
   }
   
   try {
@@ -23,9 +23,8 @@ router.post('/', async (req, res) => {
 
     // Validate required fields
     if (!name || !description || !steps || !Array.isArray(steps)) {
-      return res.status(400).json({
-        error: 'Missing required fields: name, description, and steps array are required'
-      });
+      next(new AppError('Missing required fields: name, description, and steps array are required', 400));
+      return;
     }
 
     // Validate steps
@@ -34,9 +33,8 @@ router.post('/', async (req, res) => {
     });
 
     if (!validSteps) {
-      return res.status(400).json({
-        error: 'Invalid steps: each step must have title, content, target, and order'
-      });
+      next(new AppError('Invalid steps: each step must have title, content, target, and order', 400));
+      return;
     }
 
     const walkthrough: Walkthrough = {
@@ -74,29 +72,27 @@ router.post('/', async (req, res) => {
 
       logger.info(`Created walkthrough with ID: ${walkthrough.id}`);
       res.status(201).json(walkthrough);
-    } catch (error) {
+    } catch (error: any) {
       // Rollback transaction on error
       await db.run('ROLLBACK');
-      throw error;
+      logger.error('Error in database transaction:', error);
+      next(error);
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error creating walkthrough:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while creating the walkthrough'
-    });
+    next(error);
   }
 });
 
 // GET /api/walkthroughs
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   let db;
   try {
     db = (req.app.get('db') as DatabaseSchema).getDatabase();
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error getting database:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while accessing the database'
-    });
+    next(error);
+    return;
   }
   
   try {
@@ -119,24 +115,21 @@ router.get('/', async (req, res) => {
     }));
 
     res.json(formattedWalkthroughs);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching walkthroughs:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while fetching walkthroughs'
-    });
+    next(error);
   }
 });
 
 // GET /api/walkthroughs/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   let db;
   try {
     db = (req.app.get('db') as DatabaseSchema).getDatabase();
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error getting database:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while accessing the database'
-    });
+    next(error);
+    return;
   }
   
   try {
@@ -148,9 +141,8 @@ router.get('/:id', async (req, res) => {
     `, [req.params.id]);
 
     if (!walkthrough) {
-      return res.status(404).json({
-        error: 'Walkthrough not found'
-      });
+      next(new AppError('Walkthrough not found', 404));
+      return;
     }
 
     // Convert SQLite result to Walkthrough type
@@ -165,24 +157,21 @@ router.get('/:id', async (req, res) => {
     };
 
     res.json(formattedWalkthrough);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching walkthrough:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while fetching the walkthrough'
-    });
+    next(error);
   }
 });
 
 // PUT /api/walkthroughs/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res, next) => {
   let db;
   try {
     db = (req.app.get('db') as DatabaseSchema).getDatabase();
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error getting database:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while accessing the database'
-    });
+    next(error);
+    return;
   }
   
   try {
@@ -190,9 +179,8 @@ router.put('/:id', async (req, res) => {
 
     // Validate required fields
     if (!name || !description || !steps || !Array.isArray(steps)) {
-      return res.status(400).json({
-        error: 'Missing required fields: name, description, and steps array are required'
-      });
+      next(new AppError('Missing required fields: name, description, and steps array are required', 400));
+      return;
     }
 
     // Validate steps
@@ -201,41 +189,40 @@ router.put('/:id', async (req, res) => {
     });
 
     if (!validSteps) {
-      return res.status(400).json({
-        error: 'Invalid steps: each step must have title, content, target, and order'
-      });
+      next(new AppError('Invalid steps: each step must have title, content, target, and order', 400));
+      return;
     }
 
     // Begin transaction
     await db.run('BEGIN TRANSACTION');
 
     try {
-      // Check if walkthrough exists and get current data
-      const existing = await db.get(
-        'SELECT * FROM walkthroughs WHERE id = ?',
+      // Check if walkthrough exists and get current isActive value
+      const existingWalkthrough = await db.get(
+        'SELECT id, isActive FROM walkthroughs WHERE id = ?',
         [req.params.id]
       );
 
-      if (!existing) {
+      if (!existingWalkthrough) {
         await db.run('ROLLBACK');
-        return res.status(404).json({
-          error: 'Walkthrough not found'
-        });
+        next(new AppError('Walkthrough not found', 404));
+        return;
       }
 
-      const updatedAt = new Date();
+      // Use provided isActive value or keep existing one
+      const newIsActive = isActive !== undefined ? isActive : existingWalkthrough.isActive === 1;
 
       // Update walkthrough
       await db.run(
         `UPDATE walkthroughs 
-         SET name = ?, description = ?, steps = ?, isActive = ?, updatedAt = ?
-         WHERE id = ?`,
+        SET name = ?, description = ?, steps = ?, isActive = ?, updatedAt = ?
+        WHERE id = ?`,
         [
           name,
           description,
           JSON.stringify(steps),
-          isActive === undefined ? existing.isActive : (isActive ? 1 : 0),
-          updatedAt.toISOString(),
+          newIsActive ? 1 : 0,
+          new Date().toISOString(),
           req.params.id
         ]
       );
@@ -243,32 +230,46 @@ router.put('/:id', async (req, res) => {
       // Commit transaction
       await db.run('COMMIT');
 
+      // Get updated walkthrough
+      const updatedWalkthrough = await db.get(
+        'SELECT * FROM walkthroughs WHERE id = ?',
+        [req.params.id]
+      );
+
+      // Convert SQLite result to Walkthrough type
+      const formattedWalkthrough = {
+        id: updatedWalkthrough.id,
+        name: updatedWalkthrough.name,
+        description: updatedWalkthrough.description,
+        steps: JSON.parse(updatedWalkthrough.steps),
+        isActive: updatedWalkthrough.isActive === 1,
+        createdAt: new Date(updatedWalkthrough.createdAt),
+        updatedAt: new Date(updatedWalkthrough.updatedAt)
+      };
+
       logger.info(`Updated walkthrough with ID: ${req.params.id}`);
-      res.json({
-        id: req.params.id,
-        name,
-        description,
-        steps,
-        isActive: isActive === undefined ? existing.isActive === 1 : isActive,
-        createdAt: new Date(existing.createdAt),
-        updatedAt
-      });
-    } catch (error) {
+      res.json(formattedWalkthrough);
+    } catch (error: any) {
       // Rollback transaction on error
       await db.run('ROLLBACK');
-      throw error;
+      logger.error('Error in database transaction:', error);
+      next(error);
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error updating walkthrough:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'An unexpected error occurred while updating the walkthrough'
-    });
+    next(error);
   }
 });
 
 // DELETE /api/walkthroughs/:id
-router.delete('/:id', async (req, res) => {
-  const db = (req.app.get('db') as DatabaseSchema).getDatabase();
+router.delete('/:id', async (req, res, next) => {
+  let db;
+  try {
+    db = (req.app.get('db') as DatabaseSchema).getDatabase();
+  } catch (error: any) {
+    logger.error('Error getting database:', error);
+    throw error;
+  }
   
   try {
     // Begin transaction
@@ -276,36 +277,37 @@ router.delete('/:id', async (req, res) => {
 
     try {
       // Check if walkthrough exists
-      const existing = await db.get(
+      const existingWalkthrough = await db.get(
         'SELECT id FROM walkthroughs WHERE id = ?',
         [req.params.id]
       );
 
-      if (!existing) {
+      if (!existingWalkthrough) {
         await db.run('ROLLBACK');
-        return res.status(404).json({
-          error: 'Walkthrough not found'
-        });
+        next(new AppError('Walkthrough not found', 404));
+        return;
       }
 
-      // Delete walkthrough (cascade will handle related records)
-      await db.run('DELETE FROM walkthroughs WHERE id = ?', [req.params.id]);
+      // Delete walkthrough
+      await db.run(
+        'DELETE FROM walkthroughs WHERE id = ?',
+        [req.params.id]
+      );
 
       // Commit transaction
       await db.run('COMMIT');
 
       logger.info(`Deleted walkthrough with ID: ${req.params.id}`);
-      res.status(204).send();
-    } catch (error) {
+      res.status(204).end();
+    } catch (error: any) {
       // Rollback transaction on error
       await db.run('ROLLBACK');
-      throw error;
+      logger.error('Error in database transaction:', error);
+      next(error);
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error deleting walkthrough:', error);
-    res.status(500).json({
-      error: 'An unexpected error occurred while deleting the walkthrough'
-    });
+    next(error);
   }
 });
 
