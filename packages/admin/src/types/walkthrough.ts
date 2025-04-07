@@ -1,9 +1,20 @@
+export interface ElementPosition {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
 export interface Step {
-  id: string;
+  id?: string;
   title: string;
   content: string;
   target: string;
+  elementSelector: string;
+  position: ElementPosition;
   order: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Walkthrough {

@@ -1,5 +1,5 @@
 import { ApiClient, ApiConfig, ApiResponse, ApiError } from '../types/api';
-import { Step } from '../components/PointAndClickEditor/types';
+import { Step } from '../types/walkthrough';
 
 export class ApiClientImpl implements ApiClient {
   private config: ApiConfig;
@@ -89,6 +89,17 @@ export class ApiClientImpl implements ApiClient {
     step: Omit<Step, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Step> {
     try {
+      // Mock response for development
+      const mockStep: Step = {
+        ...step,
+        id: Math.random().toString(36).substr(2, 9),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      return mockStep;
+
+      // Uncomment this when backend is ready
+      /*
       const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps`, {
         method: 'POST',
         headers: {
@@ -102,6 +113,7 @@ export class ApiClientImpl implements ApiClient {
       }
 
       return response.json();
+      */
     } catch (error) {
       console.error('Error creating step:', error);
       throw error;

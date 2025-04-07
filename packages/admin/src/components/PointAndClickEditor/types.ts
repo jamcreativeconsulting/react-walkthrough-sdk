@@ -1,19 +1,4 @@
-export interface Step {
-  id: string;
-  elementSelector: string;
-  position: ElementPosition;
-  content: string;
-  order: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ElementPosition {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
+import { Step, ElementPosition } from '../../types/walkthrough';
 
 export interface PointAndClickEditorProps {
   onStepCreated?: (step: Step) => void;

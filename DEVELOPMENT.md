@@ -194,9 +194,24 @@ This is a React Walkthrough SDK project that aims to provide a user-friendly, fe
         - [x] Add comprehensive test coverage
     - [ ] Point-and-Click Editor
       - [x] Implement element selection
-      - [ ] Create step builder UI
+      - [x] Create step builder UI
+        - [x] Basic form implementation
+        - [x] Automatic target element population
+        - [x] Step list display
+        - [x] Mock API integration
       - [ ] Add preview functionality
+        - [ ] Live step preview
+        - [ ] Step order visualization
+        - [ ] Position preview
       - [ ] Implement publishing system
+        - [ ] Backend integration
+        - [ ] Publish status tracking
+        - [ ] Version management
+      - [ ] Step Management
+        - [ ] Edit existing steps
+        - [ ] Delete steps
+        - [ ] Reorder steps
+        - [ ] Step validation
     - [ ] Playground Functionality
       - [ ] Initialize mock authentication
         - [ ] Add auto-login for development

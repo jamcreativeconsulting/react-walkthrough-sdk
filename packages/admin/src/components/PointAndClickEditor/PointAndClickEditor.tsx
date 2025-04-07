@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useWalkthrough } from '../../context/WalkthroughContext';
 import { useAuth } from '../../context/AuthContext';
 import { ApiClientImpl } from '../../api/client';
-import { Step, Walkthrough } from '../../types/walkthrough';
-import { ApiConfig } from '../../types/api';
+import { Step } from '../../types/walkthrough';
+import { StepBuilder } from '../StepBuilder/StepBuilder';
 import './PointAndClickEditor.css';
 
 // Simple SVG icons
@@ -85,12 +85,32 @@ export const PointAndClickEditor: React.FC<PointAndClickEditorProps> = ({
 }) => {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(null);
+  const [showStepBuilder, setShowStepBuilder] = useState(false);
+  const [selectedElementSelector, setSelectedElementSelector] = useState<string>('');
   const editorRef = useRef<HTMLDivElement>(null);
   const { state: walkthroughState, dispatch } = useWalkthrough();
-  const { state: authState } = useAuth();
+  const { state: authState, login, setApiKey } = useAuth();
   const apiClient = new ApiClientImpl({
     baseUrl: process.env.REACT_APP_API_URL || 'http://localhost:3000',
   });
+
+  useEffect(() => {
+    // Initialize mock authentication
+    login('admin@example.com', 'password');
+    setApiKey('mock-api-key');
+
+    // Initialize mock walkthrough
+    const mockWalkthrough = {
+      id: '1',
+      name: 'Test Walkthrough',
+      description: 'A test walkthrough',
+      steps: [],
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    dispatch({ type: 'SET_CURRENT_WALKTHROUGH', payload: mockWalkthrough });
+  }, []);
 
   useEffect(() => {
     if (isSelecting) {
@@ -146,9 +166,14 @@ export const PointAndClickEditor: React.FC<PointAndClickEditorProps> = ({
     removeAllOutlines();
     // Set the new selected element
     setSelectedElement(target);
+    // Generate and store the selector
+    const selector = getElementSelector(target);
+    setSelectedElementSelector(selector);
     setIsSelecting(false);
     // Add selected class to the new element
     target.classList.add('element-selected');
+    // Show the step builder
+    setShowStepBuilder(true);
   };
 
   const startElementSelection = () => {
@@ -158,29 +183,52 @@ export const PointAndClickEditor: React.FC<PointAndClickEditorProps> = ({
     }
     setIsSelecting(true);
     setSelectedElement(null);
+    setSelectedElementSelector('');
     removeAllOutlines();
   };
 
-  const createStep = async () => {
-    if (!selectedElement || !authState.isAuthenticated || !walkthroughState.currentWalkthrough)
+  const handleStepBuilderSave = async (stepData: Partial<Step>) => {
+    console.log('Saving step with data:', stepData);
+    if (!selectedElement || !authState.isAuthenticated || !walkthroughState.currentWalkthrough) {
+      console.log('Missing required data:', {
+        selectedElement: !!selectedElement,
+        isAuthenticated: authState.isAuthenticated,
+        currentWalkthrough: !!walkthroughState.currentWalkthrough,
+      });
       return;
+    }
 
     try {
-      const step: Omit<Step, 'id'> = {
-        title: 'New Step',
-        content: 'New step content',
-        target: getElementSelector(selectedElement),
+      const step: Omit<Step, 'id' | 'createdAt' | 'updatedAt'> = {
+        title: stepData.title || 'New Step',
+        content: stepData.content || 'New step content',
+        target: selectedElementSelector,
         order: walkthroughState.currentWalkthrough.steps.length + 1,
+        elementSelector: selectedElementSelector,
+        position: {
+          top: selectedElement.offsetTop,
+          left: selectedElement.offsetLeft,
+          width: selectedElement.offsetWidth,
+          height: selectedElement.offsetHeight,
+        },
       };
 
-      const response = await apiClient.post<Step>(
-        `/api/walkthroughs/${walkthroughState.currentWalkthrough.id}/steps`,
-        step
-      );
-      dispatch({ type: 'ADD_STEP', payload: response.data });
-      onStepCreated?.(response.data);
+      console.log('Creating step with data:', step);
+      const response = await apiClient.createStep(walkthroughState.currentWalkthrough.id, step);
+      console.log('Step created successfully:', response);
+      dispatch({ type: 'ADD_STEP', payload: response });
+      onStepCreated?.(response);
+      setShowStepBuilder(false);
     } catch (error) {
       console.error('Error creating step:', error);
+    }
+  };
+
+  const handleStepBuilderCancel = () => {
+    setShowStepBuilder(false);
+    if (selectedElement) {
+      selectedElement.classList.remove('element-selected');
+      setSelectedElement(null);
     }
   };
 
@@ -204,10 +252,36 @@ export const PointAndClickEditor: React.FC<PointAndClickEditorProps> = ({
           <SelectIcon />
           {isSelecting ? 'Cancel Selection' : 'Select Element'}
         </button>
-        <button onClick={createStep} disabled={!selectedElement}>
-          <CreateIcon />
-          Create Step
-        </button>
+      </div>
+      {showStepBuilder && selectedElement && (
+        <StepBuilder
+          onSave={handleStepBuilderSave}
+          onCancel={handleStepBuilderCancel}
+          step={{
+            title: '',
+            content: '',
+            target: selectedElementSelector,
+            elementSelector: selectedElementSelector,
+            position: {
+              top: selectedElement.offsetTop,
+              left: selectedElement.offsetLeft,
+              width: selectedElement.offsetWidth,
+              height: selectedElement.offsetHeight,
+            },
+            order: 0,
+          }}
+        />
+      )}
+
+      <div className="steps-list">
+        <h3>Steps</h3>
+        {walkthroughState.currentWalkthrough?.steps.map(step => (
+          <div key={step.id} className="step-item">
+            <h4>{step.title}</h4>
+            <p>{step.content}</p>
+            <p className="target-info">Target: {step.target}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
