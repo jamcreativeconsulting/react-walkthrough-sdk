@@ -27,11 +27,7 @@ const App: React.FC = () => {
 
           <main className="playground-content">
             <div className="editor-container">
-              <PointAndClickEditor
-                onStepCreated={handleStepCreated}
-                onStepUpdated={handleStepUpdated}
-                onStepDeleted={handleStepDeleted}
-              />
+              <PointAndClickEditor />
             </div>
 
             <div className="test-area">

@@ -6,25 +6,27 @@ export interface ElementPosition {
 }
 
 export interface Step {
-  id?: string;
+  id: string;
   title: string;
   content: string;
-  target: string;
-  elementSelector: string;
-  position: ElementPosition;
-  order: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  position: {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  };
+  targetElement: string;
+  order?: number;
+  completed?: boolean;
 }
 
 export interface Walkthrough {
   id: string;
-  name: string;
+  title: string;
   description: string;
   steps: Step[];
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WalkthroughState {

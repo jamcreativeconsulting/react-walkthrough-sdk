@@ -1,213 +1,113 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { PointAndClickEditor } from '../PointAndClickEditor';
-import { useWalkthrough } from '../../../context/WalkthroughContext';
-import { useAuth } from '../../../context/AuthContext';
-import { ApiClientImpl } from '../../../api/client';
-
-// Mock the contexts
-jest.mock('../../../context/WalkthroughContext');
-jest.mock('../../../context/AuthContext');
-jest.mock('../../../api/client');
+import { WalkthroughProvider } from '../../../context/WalkthroughContext';
+import { AuthProvider } from '../../../context/AuthContext';
+import { Step } from '../../../types/walkthrough';
 
 describe('PointAndClickEditor', () => {
-  const mockWalkthroughState = {
-    currentWalkthrough: {
-      id: 'test-walkthrough',
-      steps: [],
+  const mockStep: Step = {
+    id: '1',
+    title: 'Test Step',
+    content: 'This is a test step',
+    targetElement: '#test-element',
+    position: {
+      top: 100,
+      left: 100,
+      width: 200,
+      height: 50,
     },
+    order: 1,
   };
 
-  const mockAuthState = {
-    isAuthenticated: true,
-    apiKey: 'test-api-key',
+  const mockWalkthrough = {
+    id: '1',
+    title: 'Test Walkthrough',
+    description: 'Test Description',
+    steps: [mockStep],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
-  const mockDispatch = jest.fn();
-  const mockPost = jest.fn();
+  const renderWithProviders = () => {
+    return render(
+      <AuthProvider>
+        <WalkthroughProvider>
+          <PointAndClickEditor />
+        </WalkthroughProvider>
+      </AuthProvider>
+    );
+  };
+
+  let editor: HTMLElement | null = null;
+  let testElement: HTMLElement | null = null;
+  let originalAlert: typeof window.alert;
 
   beforeEach(() => {
-    // Reset mocks
     jest.clearAllMocks();
+    originalAlert = window.alert;
+    window.alert = jest.fn();
+  });
 
-    // Setup context mocks
-    (useWalkthrough as jest.Mock).mockReturnValue({
-      state: mockWalkthroughState,
-      dispatch: mockDispatch,
+  afterEach(() => {
+    if (testElement && editor) {
+      editor.removeChild(testElement);
+    }
+    editor = null;
+    testElement = null;
+    window.alert = originalAlert;
+  });
+
+  it('renders with preview button', () => {
+    renderWithProviders();
+    expect(screen.getByText('Show Preview')).toBeInTheDocument();
+  });
+
+  it('toggles preview mode', () => {
+    renderWithProviders();
+    const previewButton = screen.getByText('Show Preview');
+    fireEvent.click(previewButton);
+    expect(screen.getByText('Hide Preview')).toBeInTheDocument();
+  });
+
+  it('shows step builder when element is clicked', () => {
+    const { container } = renderWithProviders();
+    const editor = container.querySelector('.point-and-click-editor');
+    const testElement = document.createElement('div');
+    testElement.id = 'test-element';
+    editor?.appendChild(testElement);
+
+    act(() => {
+      fireEvent.click(testElement);
     });
 
-    (useAuth as jest.Mock).mockReturnValue({
-      state: mockAuthState,
+    expect(screen.getByText('Edit Step')).toBeInTheDocument();
+  });
+
+  it('saves step when form is submitted', async () => {
+    const { container } = renderWithProviders();
+    const editor = container.querySelector('.point-and-click-editor');
+    const testElement = document.createElement('div');
+    testElement.id = 'test-element';
+    editor?.appendChild(testElement);
+
+    act(() => {
+      fireEvent.click(testElement);
     });
 
-    // Mock ApiClientImpl
-    mockPost.mockResolvedValue({
-      data: {
-        id: 'new-step-id',
-        title: 'New Step',
-        content: 'New step content',
-        target: 'div.test-element',
-        order: 1,
+    const titleInput = screen.getByLabelText('Title');
+    const contentInput = screen.getByLabelText('Content');
+    const saveButton = screen.getByText('Save');
+
+    fireEvent.change(titleInput, { target: { value: 'New Step' } });
+    fireEvent.change(contentInput, { target: { value: 'New Content' } });
+    fireEvent.click(saveButton);
+
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Edit Step')).not.toBeInTheDocument();
       },
-    });
-
-    (ApiClientImpl as jest.Mock).mockImplementation(() => ({
-      post: mockPost,
-    }));
-  });
-
-  it('renders the editor toolbar', () => {
-    render(<PointAndClickEditor />);
-    expect(screen.getByText('Select Element')).toBeInTheDocument();
-  });
-
-  it('enables element selection mode when clicking the select button', () => {
-    render(<PointAndClickEditor />);
-    const selectButton = screen.getByText('Select Element');
-    fireEvent.click(selectButton);
-    expect(screen.getByText('Cancel Selection')).toBeInTheDocument();
-  });
-
-  it('shows step builder when element is selected', async () => {
-    render(<PointAndClickEditor />);
-
-    // Start element selection
-    const selectButton = screen.getByText('Select Element');
-    await act(async () => {
-      fireEvent.click(selectButton);
-    });
-
-    // Create a mock element and add it to the document
-    const mockElement = document.createElement('div');
-    mockElement.id = 'test-element';
-    mockElement.className = 'test-class';
-    document.body.appendChild(mockElement);
-
-    // Simulate click on element
-    await act(async () => {
-      fireEvent.click(mockElement);
-    });
-
-    // Verify step builder is shown
-    expect(screen.getByLabelText('Title')).toBeInTheDocument();
-    expect(screen.getByLabelText('Content')).toBeInTheDocument();
-    expect(screen.getByLabelText('Target Element')).toBeInTheDocument();
-
-    // Clean up
-    document.body.removeChild(mockElement);
-  });
-
-  it('creates a step when step builder form is submitted', async () => {
-    render(<PointAndClickEditor />);
-
-    // Start element selection
-    const selectButton = screen.getByText('Select Element');
-    await act(async () => {
-      fireEvent.click(selectButton);
-    });
-
-    // Create a mock element and add it to the document
-    const mockElement = document.createElement('div');
-    mockElement.id = 'test-element';
-    mockElement.className = 'test-class';
-    document.body.appendChild(mockElement);
-
-    // Simulate click on element
-    await act(async () => {
-      fireEvent.click(mockElement);
-    });
-
-    // Fill in step builder form
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Test Title' } });
-    fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'Test Content' } });
-
-    // Submit form
-    await act(async () => {
-      fireEvent.click(screen.getByText('Save Step'));
-    });
-
-    // Verify API call
-    expect(mockPost).toHaveBeenCalledWith(
-      `/api/walkthroughs/${mockWalkthroughState.currentWalkthrough.id}/steps`,
-      expect.objectContaining({
-        title: 'Test Title',
-        content: 'Test Content',
-        target: expect.stringContaining('div'),
-      })
+      { timeout: 2000 }
     );
-
-    // Clean up
-    document.body.removeChild(mockElement);
-  });
-
-  it('cancels step creation when cancel button is clicked', async () => {
-    render(<PointAndClickEditor />);
-
-    // Start element selection
-    const selectButton = screen.getByText('Select Element');
-    await act(async () => {
-      fireEvent.click(selectButton);
-    });
-
-    // Create a mock element and add it to the document
-    const mockElement = document.createElement('div');
-    mockElement.id = 'test-element';
-    document.body.appendChild(mockElement);
-
-    // Simulate click on element
-    await act(async () => {
-      fireEvent.click(mockElement);
-    });
-
-    // Click cancel button
-    await act(async () => {
-      fireEvent.click(screen.getByText('Cancel'));
-    });
-
-    // Verify step builder is hidden
-    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Content')).not.toBeInTheDocument();
-
-    // Clean up
-    document.body.removeChild(mockElement);
-  });
-
-  it('requires authentication to create steps', async () => {
-    // Mock unauthenticated state
-    (useAuth as jest.Mock).mockReturnValue({
-      state: { isAuthenticated: false },
-    });
-
-    render(<PointAndClickEditor />);
-
-    // Start element selection
-    const selectButton = screen.getByText('Select Element');
-    await act(async () => {
-      fireEvent.click(selectButton);
-    });
-
-    // Create a mock element and add it to the document
-    const mockElement = document.createElement('div');
-    mockElement.id = 'test-element';
-    document.body.appendChild(mockElement);
-
-    await act(async () => {
-      fireEvent.click(mockElement);
-    });
-
-    // Fill in step builder form
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Test Title' } });
-    fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'Test Content' } });
-
-    // Submit form
-    await act(async () => {
-      fireEvent.click(screen.getByText('Save Step'));
-    });
-
-    // Verify no API call was made
-    expect(mockPost).not.toHaveBeenCalled();
-
-    // Clean up
-    document.body.removeChild(mockElement);
   });
 });

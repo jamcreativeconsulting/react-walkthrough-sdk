@@ -1,159 +1,95 @@
-import { ApiClient, ApiConfig, ApiResponse, ApiError } from '../types/api';
 import { Step } from '../types/walkthrough';
 
-export class ApiClientImpl implements ApiClient {
-  private config: ApiConfig;
-  private defaultHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+export interface ApiClientConfig {
+  baseUrl: string;
+  apiKey: string;
+}
 
-  constructor(config: ApiConfig) {
-    this.config = config;
+export interface ApiResponse<T> {
+  data: T;
+  status: number;
+}
+
+export class ApiClientImpl {
+  private baseUrl: string;
+  private apiKey: string;
+
+  constructor(config: ApiClientConfig) {
+    this.baseUrl = config.baseUrl;
+    this.apiKey = config.apiKey;
   }
 
   private async request<T>(
+    endpoint: string,
     method: string,
-    path: string,
-    data?: any,
-    params?: Record<string, any>
+    body?: unknown
   ): Promise<ApiResponse<T>> {
-    try {
-      const url = new URL(path, this.config.baseUrl);
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey}`,
+    };
 
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          url.searchParams.append(key, String(value));
-        });
-      }
-
-      const headers: Record<string, string> = {
-        ...this.defaultHeaders,
-      };
-
-      if (this.config.apiKey) {
-        headers['Authorization'] = `Bearer ${this.config.apiKey}`;
-      }
-
-      const response = await fetch(url.toString(), {
-        method,
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw {
-          message: responseData.message || 'An error occurred',
-          status: response.status,
-          code: responseData.code,
-        } as ApiError;
-      }
-
-      return {
-        data: responseData,
-        status: response.status,
-      };
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+    if (body) {
+      headers['Content-Type'] = 'application/json';
     }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      data,
+      status: response.status,
+    };
   }
 
   async get<T>(path: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
-    return this.request<T>('GET', path, undefined, params);
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+    return this.request<T>(`${path}${queryString}`, 'GET');
   }
 
   async post<T>(path: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>('POST', path, data);
+    return this.request<T>(path, 'POST', data);
   }
 
   async put<T>(path: string, data?: any): Promise<ApiResponse<T>> {
-    return this.request<T>('PUT', path, data);
+    return this.request<T>(path, 'PUT', data);
   }
 
   async delete<T>(path: string): Promise<ApiResponse<T>> {
-    return this.request<T>('DELETE', path);
+    return this.request<T>(path, 'DELETE');
   }
 
   setApiKey(apiKey: string): void {
-    this.config.apiKey = apiKey;
+    this.apiKey = apiKey;
   }
 
-  clearApiKey(): void {
-    this.config.apiKey = undefined;
+  async createStep(walkthroughId: string, step: Omit<Step, 'id'>): Promise<Step> {
+    const response = await this.request<Step>(
+      `/api/walkthroughs/${walkthroughId}/steps`,
+      'POST',
+      step
+    );
+    return response.data;
   }
 
-  async createStep(
-    walkthroughId: string,
-    step: Omit<Step, 'id' | 'createdAt' | 'updatedAt'>
-  ): Promise<Step> {
-    try {
-      // Mock response for development
-      const mockStep: Step = {
-        ...step,
-        id: Math.random().toString(36).substr(2, 9),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      return mockStep;
-
-      // Uncomment this when backend is ready
-      /*
-      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(step),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create step');
-      }
-
-      return response.json();
-      */
-    } catch (error) {
-      console.error('Error creating step:', error);
-      throw error;
-    }
-  }
-
-  async updateStep(walkthroughId: string, stepId: string, step: Partial<Step>): Promise<Step> {
-    try {
-      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps/${stepId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(step),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update step');
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error updating step:', error);
-      throw error;
-    }
+  async updateStep(walkthroughId: string, step: Step): Promise<Step> {
+    const response = await this.request<Step>(
+      `/api/walkthroughs/${walkthroughId}/steps/${step.id}`,
+      'PUT',
+      step
+    );
+    return response.data;
   }
 
   async deleteStep(walkthroughId: string, stepId: string): Promise<void> {
-    try {
-      const response = await fetch(`/api/walkthroughs/${walkthroughId}/steps/${stepId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete step');
-      }
-    } catch (error) {
-      console.error('Error deleting step:', error);
-      throw error;
-    }
+    await this.request<void>(`/api/walkthroughs/${walkthroughId}/steps/${stepId}`, 'DELETE');
   }
 
   async getSteps(walkthroughId: string): Promise<Step[]> {

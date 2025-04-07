@@ -1,68 +1,71 @@
 .step-builder {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: white;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 500px;
-  margin: 20px auto;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 400px;
+  z-index: 1000;
+}
+
+.step-builder h3 {
+  margin: 0 0 20px 0;
+  color: #333;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #333;
+  margin-bottom: 5px;
+  color: #666;
+  font-size: 14px;
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
 }
 
 .form-group textarea {
-  min-height: 100px;
+  height: 100px;
   resize: vertical;
 }
 
 .button-group {
   display: flex;
-  gap: 10px;
   justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
 
-.save-button,
-.cancel-button {
+.button-group button {
   padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.save-button {
-  background-color: #007bff;
-  color: white;
   border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
-.save-button:hover {
-  background-color: #0056b3;
+.button-group button:first-child {
+  background: #007bff;
+  color: white;
 }
 
-.cancel-button {
-  background-color: #f8f9fa;
+.button-group button:last-child {
+  background: #f8f9fa;
   color: #333;
-  border: 1px solid #ddd;
 }
 
-.cancel-button:hover {
-  background-color: #e9ecef;
+.button-group button:hover {
+  opacity: 0.9;
 }

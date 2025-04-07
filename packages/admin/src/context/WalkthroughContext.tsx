@@ -1,5 +1,15 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { WalkthroughState, WalkthroughAction, Walkthrough } from '../types/walkthrough';
+import { Walkthrough, Step, WalkthroughState } from '../types/walkthrough';
+
+export type WalkthroughAction =
+  | { type: 'SET_CURRENT_WALKTHROUGH'; payload: Walkthrough }
+  | { type: 'SET_WALKTHROUGHS'; payload: Walkthrough[] }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'ADD_STEP'; payload: Step }
+  | { type: 'REMOVE_STEP'; payload: string }
+  | { type: 'UPDATE_STEP'; payload: Step }
+  | { type: 'MARK_STEP_COMPLETED'; payload: { stepId: string; completed: boolean } };
 
 const initialState: WalkthroughState = {
   currentWalkthrough: null,
@@ -44,6 +54,20 @@ function walkthroughReducer(state: WalkthroughState, action: WalkthroughAction):
           ...state.currentWalkthrough,
           steps: state.currentWalkthrough.steps.map(step =>
             step.id === action.payload.id ? action.payload : step
+          ),
+        },
+      };
+    case 'MARK_STEP_COMPLETED':
+      if (!state.currentWalkthrough) return state;
+
+      return {
+        ...state,
+        currentWalkthrough: {
+          ...state.currentWalkthrough,
+          steps: state.currentWalkthrough.steps.map(step =>
+            step.id === action.payload.stepId
+              ? { ...step, completed: action.payload.completed }
+              : step
           ),
         },
       };
