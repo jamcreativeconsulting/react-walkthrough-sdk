@@ -30,6 +30,9 @@ const createMockState = () => ({
 const mockDispatch = jest.fn(action => {
   // Update mockState based on the action
   switch (action.type) {
+    case 'ADD_STEP':
+      mockState.currentWalkthrough.steps = [...mockState.currentWalkthrough.steps, action.payload];
+      break;
     case 'UPDATE_STEP':
       mockState.currentWalkthrough.steps = [
         ...mockState.currentWalkthrough.steps.filter(step => step.id !== action.payload.id),

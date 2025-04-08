@@ -13,7 +13,7 @@ jest.mock('../../config', () => {
     apiKey: 'test-api-key',
     allowedOrigins: ['http://localhost:3000', 'https://example.com'],
     port: 3000,
-    databasePath: ':memory:'
+    databasePath: ':memory:',
   };
   return { __esModule: true, default: config };
 });
@@ -25,7 +25,7 @@ describe('Walkthrough Routes', () => {
 
   const validHeaders = {
     'x-api-key': 'test-api-key',
-    'origin': 'http://localhost:3000'
+    origin: 'http://localhost:3000',
   };
 
   beforeAll(async () => {
@@ -57,11 +57,11 @@ describe('Walkthrough Routes', () => {
       // Create a fresh Express app for each test
       app = express();
       app.use(express.json());
-      
+
       // Reset database to a clean state
       await db.reset();
       logger.info('Database reset for new test');
-      
+
       // Set up the database and routes
       app.set('db', db);
 
@@ -153,9 +153,9 @@ describe('Walkthrough Routes', () => {
             title: 'Step 1',
             content: 'This is step 1',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const response = await request(app)
@@ -172,10 +172,7 @@ describe('Walkthrough Routes', () => {
     });
 
     it('should return 400 for missing required fields', async () => {
-      const response = await request(app)
-        .post('/api/walkthroughs')
-        .set(validHeaders)
-        .send({});
+      const response = await request(app).post('/api/walkthroughs').set(validHeaders).send({});
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('Missing required fields');
@@ -189,9 +186,9 @@ describe('Walkthrough Routes', () => {
           {
             title: 'Step 1',
             // Missing content and target
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const response = await request(app)
@@ -200,17 +197,19 @@ describe('Walkthrough Routes', () => {
         .send(invalidWalkthroughData);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Invalid steps: each step must have title, content, target, and order');
+      expect(response.body.error).toBe(
+        'Invalid steps: each step must have title, content, target, and order'
+      );
     });
 
     it('should handle database errors gracefully', async () => {
       // Create a new database instance and simulate a database error
       errorDb = new DatabaseSchema(':memory:');
       await errorDb.initializeSchema();
-      
+
       // Store the original database
       const originalDb = app.get('db');
-      
+
       // Replace the app's database with the error-prone one
       app.set('db', errorDb);
 
@@ -229,9 +228,9 @@ describe('Walkthrough Routes', () => {
             title: 'Step 1',
             content: 'Step 1 content',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       try {
@@ -250,14 +249,12 @@ describe('Walkthrough Routes', () => {
         await errorDb.close();
         errorDb = null;
       }
-    }, 60000); // Increase timeout to 60 seconds
+    });
   });
 
   describe('GET /api/walkthroughs', () => {
     it('should return an empty array when no walkthroughs exist', async () => {
-      const response = await request(app)
-        .get('/api/walkthroughs')
-        .set(validHeaders);
+      const response = await request(app).get('/api/walkthroughs').set(validHeaders);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -273,19 +270,14 @@ describe('Walkthrough Routes', () => {
             title: 'Step 1',
             content: 'This is step 1',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
-      await request(app)
-        .post('/api/walkthroughs')
-        .set(validHeaders)
-        .send(walkthroughData);
+      await request(app).post('/api/walkthroughs').set(validHeaders).send(walkthroughData);
 
-      const response = await request(app)
-        .get('/api/walkthroughs')
-        .set(validHeaders);
+      const response = await request(app).get('/api/walkthroughs').set(validHeaders);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
@@ -302,19 +294,20 @@ describe('Walkthrough Routes', () => {
       expect(response.body.error).toBe('Walkthrough not found');
     });
 
-    it('should return the walkthrough by id', async () => {
-      // Create a walkthrough first
+    it('should return walkthrough by id', async () => {
+      // First create a walkthrough
       const walkthroughData = {
         name: 'Test Walkthrough',
         description: 'A test walkthrough',
         steps: [
           {
+            id: 'step1',
             title: 'Step 1',
             content: 'This is step 1',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const createResponse = await request(app)
@@ -324,6 +317,7 @@ describe('Walkthrough Routes', () => {
 
       const walkthroughId = createResponse.body.id;
 
+      // Then get it by id
       const response = await request(app)
         .get(`/api/walkthroughs/${walkthroughId}`)
         .set(validHeaders);
@@ -349,9 +343,9 @@ describe('Walkthrough Routes', () => {
               title: 'Updated Step',
               content: 'Updated content',
               target: '#updated',
-              order: 1
-            }
-          ]
+              order: 1,
+            },
+          ],
         });
 
       expect(response.status).toBe(404);
@@ -368,9 +362,9 @@ describe('Walkthrough Routes', () => {
             title: 'Step 1',
             content: 'This is step 1',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const createResponse = await request(app)
@@ -388,9 +382,9 @@ describe('Walkthrough Routes', () => {
             title: 'Updated Step',
             content: 'Updated content',
             target: '#updated',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const response = await request(app)
@@ -416,9 +410,9 @@ describe('Walkthrough Routes', () => {
             title: 'Step 1',
             content: 'This is step 1',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const createResponse = await request(app)
@@ -437,13 +431,15 @@ describe('Walkthrough Routes', () => {
           steps: [
             {
               // Missing required fields
-              order: 1
-            }
-          ]
+              order: 1,
+            },
+          ],
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Invalid steps: each step must have title, content, target, and order');
+      expect(response.body.error).toBe(
+        'Invalid steps: each step must have title, content, target, and order'
+      );
     });
   });
 
@@ -467,9 +463,9 @@ describe('Walkthrough Routes', () => {
             title: 'Step 1',
             content: 'This is step 1',
             target: '#element1',
-            order: 1
-          }
-        ]
+            order: 1,
+          },
+        ],
       };
 
       const createResponse = await request(app)
@@ -493,4 +489,4 @@ describe('Walkthrough Routes', () => {
       expect(getResponse.status).toBe(404);
     });
   });
-}); 
+});

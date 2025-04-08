@@ -151,17 +151,19 @@ export const PointAndClickEditor: React.FC = () => {
         state.currentWalkthrough.steps.length > 0 && (
           <div className="steps-list">
             <h3>Steps ({totalSteps})</h3>
-            {state.currentWalkthrough.steps.map((step, index) => (
-              <div key={step.id} className="step-item">
-                <span>
-                  {index + 1}. {step.title || 'Untitled Step'}
-                </span>
-                <div className="step-actions">
-                  <button onClick={() => handleEditStep(index)}>Edit</button>
-                  <button onClick={() => handleDeleteStep(step.id)}>Delete</button>
+            <div data-testid="step-list">
+              {state.currentWalkthrough.steps.map((step, index) => (
+                <div key={step.id} className="step-item">
+                  <span>
+                    {index + 1}. {step.title || 'Untitled Step'}
+                  </span>
+                  <div className="step-actions">
+                    <button onClick={() => handleEditStep(index)}>Edit</button>
+                    <button onClick={() => handleDeleteStep(step.id)}>Delete</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 

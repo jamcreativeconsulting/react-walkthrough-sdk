@@ -1,0 +1,66 @@
+.step-order {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.step-order h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+}
+
+.step-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.step-order-item {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: move;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.step-order-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.step-order-item.dragging {
+  opacity: 0.5;
+}
+
+.step-number {
+  width: 30px;
+  height: 30px;
+  background: #007bff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 15px;
+  font-weight: bold;
+}
+
+.step-info {
+  flex: 1;
+}
+
+.step-title {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.step-target {
+  font-size: 0.9em;
+  color: #666;
+  font-family: monospace;
+}

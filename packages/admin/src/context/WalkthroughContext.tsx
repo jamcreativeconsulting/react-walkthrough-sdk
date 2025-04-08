@@ -9,6 +9,7 @@ export type WalkthroughAction =
   | { type: 'ADD_STEP'; payload: Step }
   | { type: 'REMOVE_STEP'; payload: string }
   | { type: 'UPDATE_STEP'; payload: Step }
+  | { type: 'UPDATE_STEP_ORDER'; payload: Step[] }
   | { type: 'MARK_STEP_COMPLETED'; payload: { stepId: string; completed: boolean } };
 
 const initialState: WalkthroughState = {
@@ -68,6 +69,16 @@ function walkthroughReducer(state: WalkthroughState, action: WalkthroughAction):
           steps: state.currentWalkthrough.steps.map(step =>
             step.id === action.payload.id ? action.payload : step
           ),
+        },
+      };
+    case 'UPDATE_STEP_ORDER':
+      if (!state.currentWalkthrough) return state;
+      return {
+        ...state,
+        currentWalkthrough: {
+          ...state.currentWalkthrough,
+          steps: action.payload,
+          updatedAt: new Date().toISOString(),
         },
       };
     case 'MARK_STEP_COMPLETED':
