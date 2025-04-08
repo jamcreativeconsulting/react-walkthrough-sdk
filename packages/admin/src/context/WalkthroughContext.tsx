@@ -29,12 +29,25 @@ function walkthroughReducer(state: WalkthroughState, action: WalkthroughAction):
     case 'SET_ERROR':
       return { ...state, error: action.payload };
     case 'ADD_STEP':
-      if (!state.currentWalkthrough) return state;
+      if (!state.currentWalkthrough) {
+        return {
+          ...state,
+          currentWalkthrough: {
+            id: crypto.randomUUID(),
+            title: 'New Walkthrough',
+            description: '',
+            steps: [action.payload],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        };
+      }
       return {
         ...state,
         currentWalkthrough: {
           ...state.currentWalkthrough,
           steps: [...state.currentWalkthrough.steps, action.payload],
+          updatedAt: new Date().toISOString(),
         },
       };
     case 'REMOVE_STEP':

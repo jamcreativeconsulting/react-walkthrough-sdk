@@ -1,113 +1,231 @@
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { PointAndClickEditor } from '../PointAndClickEditor';
 import { WalkthroughProvider } from '../../../context/WalkthroughContext';
-import { AuthProvider } from '../../../context/AuthContext';
 import { Step } from '../../../types/walkthrough';
 
+// Mock crypto.randomUUID
+const mockUUID = '123e4567-e89b-12d3-a456-426614174000';
+global.crypto = {
+  ...global.crypto,
+  randomUUID: () => mockUUID,
+};
+
+// Create a function to get fresh mock data for each test
+const getMockWalkthrough = () => ({
+  id: '1',
+  title: 'Test Walkthrough',
+  description: 'Test Description',
+  steps: [] as Step[],
+});
+
+// Mock the WalkthroughContext with a function to update state
+const createMockState = () => ({
+  currentWalkthrough: getMockWalkthrough(),
+  walkthroughs: [getMockWalkthrough()],
+  loading: false,
+  error: null,
+});
+
+const mockDispatch = jest.fn(action => {
+  // Update mockState based on the action
+  switch (action.type) {
+    case 'UPDATE_STEP':
+      mockState.currentWalkthrough.steps = [
+        ...mockState.currentWalkthrough.steps.filter(step => step.id !== action.payload.id),
+        action.payload,
+      ];
+      break;
+    case 'REMOVE_STEP':
+      mockState.currentWalkthrough.steps = mockState.currentWalkthrough.steps.filter(
+        step => step.id !== action.payload
+      );
+      break;
+  }
+});
+
+let mockState = createMockState();
+
+jest.mock('../../../context/WalkthroughContext', () => ({
+  ...jest.requireActual('../../../context/WalkthroughContext'),
+  useWalkthrough: () => ({
+    state: mockState,
+    dispatch: mockDispatch,
+  }),
+}));
+
+const renderEditor = () => {
+  return render(
+    <WalkthroughProvider>
+      <div id="test-element">Test Element</div>
+      <PointAndClickEditor />
+    </WalkthroughProvider>
+  );
+};
+
 describe('PointAndClickEditor', () => {
-  const mockStep: Step = {
-    id: '1',
-    title: 'Test Step',
-    content: 'This is a test step',
-    targetElement: '#test-element',
-    position: {
-      top: 100,
-      left: 100,
-      width: 200,
-      height: 50,
-    },
-    order: 1,
-  };
-
-  const mockWalkthrough = {
-    id: '1',
-    title: 'Test Walkthrough',
-    description: 'Test Description',
-    steps: [mockStep],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const renderWithProviders = () => {
-    return render(
-      <AuthProvider>
-        <WalkthroughProvider>
-          <PointAndClickEditor />
-        </WalkthroughProvider>
-      </AuthProvider>
-    );
-  };
-
-  let editor: HTMLElement | null = null;
-  let testElement: HTMLElement | null = null;
-  let originalAlert: typeof window.alert;
-
   beforeEach(() => {
-    jest.clearAllMocks();
-    originalAlert = window.alert;
-    window.alert = jest.fn();
+    mockDispatch.mockClear();
+    mockState = createMockState();
   });
 
-  afterEach(() => {
-    if (testElement && editor) {
-      editor.removeChild(testElement);
-    }
-    editor = null;
-    testElement = null;
-    window.alert = originalAlert;
-  });
+  it('saves a new step', async () => {
+    renderEditor();
 
-  it('renders with preview button', () => {
-    renderWithProviders();
-    expect(screen.getByText('Show Preview')).toBeInTheDocument();
-  });
+    // Click the test element to start creating a step
+    const testElement = screen.getByText('Test Element');
+    fireEvent.click(testElement);
 
-  it('toggles preview mode', () => {
-    renderWithProviders();
-    const previewButton = screen.getByText('Show Preview');
-    fireEvent.click(previewButton);
-    expect(screen.getByText('Hide Preview')).toBeInTheDocument();
-  });
+    // Now the StepBuilder should be rendered
+    const stepBuilder = await screen.findByRole('dialog', { name: 'Edit Step' });
+    const titleInput = within(stepBuilder).getByLabelText('Title');
+    const contentInput = within(stepBuilder).getByLabelText('Content');
 
-  it('shows step builder when element is clicked', () => {
-    const { container } = renderWithProviders();
-    const editor = container.querySelector('.point-and-click-editor');
-    const testElement = document.createElement('div');
-    testElement.id = 'test-element';
-    editor?.appendChild(testElement);
+    fireEvent.change(titleInput, { target: { value: 'Test Step' } });
+    fireEvent.change(contentInput, { target: { value: 'Test Content' } });
 
-    act(() => {
-      fireEvent.click(testElement);
-    });
-
-    expect(screen.getByText('Edit Step')).toBeInTheDocument();
-  });
-
-  it('saves step when form is submitted', async () => {
-    const { container } = renderWithProviders();
-    const editor = container.querySelector('.point-and-click-editor');
-    const testElement = document.createElement('div');
-    testElement.id = 'test-element';
-    editor?.appendChild(testElement);
-
-    act(() => {
-      fireEvent.click(testElement);
-    });
-
-    const titleInput = screen.getByLabelText('Title');
-    const contentInput = screen.getByLabelText('Content');
-    const saveButton = screen.getByText('Save');
-
-    fireEvent.change(titleInput, { target: { value: 'New Step' } });
-    fireEvent.change(contentInput, { target: { value: 'New Content' } });
+    // Click save button in the StepBuilder
+    const saveButton = within(stepBuilder).getByText('Save');
     fireEvent.click(saveButton);
 
-    await waitFor(
-      () => {
-        expect(screen.queryByText('Edit Step')).not.toBeInTheDocument();
+    // Verify step is added to the list
+    await waitFor(() => {
+      const stepItem = screen.getByText((content, element) => {
+        return element?.textContent === '1. Test Step';
+      });
+      expect(stepItem).toBeInTheDocument();
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'UPDATE_STEP',
+      payload: expect.objectContaining({
+        title: 'Test Step',
+        content: 'Test Content',
+      }),
+    });
+  });
+
+  it('shows step preview', async () => {
+    renderEditor();
+
+    // Click the test element to create a step
+    const testElement = screen.getByText('Test Element');
+    fireEvent.click(testElement);
+
+    // Fill in step details
+    const stepBuilder = await screen.findByRole('dialog', { name: 'Edit Step' });
+    const titleInput = within(stepBuilder).getByLabelText('Title');
+    const contentInput = within(stepBuilder).getByLabelText('Content');
+
+    fireEvent.change(titleInput, { target: { value: 'Test Step' } });
+    fireEvent.change(contentInput, { target: { value: 'Test Content' } });
+
+    // Save the step
+    const saveButton = within(stepBuilder).getByText('Save');
+    fireEvent.click(saveButton);
+
+    // Wait for the step to be added and StepBuilder to be closed
+    await waitFor(() => {
+      expect(screen.getByText('1. Test Step')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Edit Step' })).not.toBeInTheDocument();
+    });
+
+    // Click the test element again to show preview
+    fireEvent.click(testElement);
+
+    // Verify preview is shown
+    await waitFor(() => {
+      const stepPreview = screen.getByTestId('preview-title');
+      expect(stepPreview).toBeInTheDocument();
+      expect(stepPreview).toHaveTextContent('Test Step');
+      expect(screen.getByTestId('preview-content')).toHaveTextContent('Test Content');
+      expect(screen.getByText('Step 1 of 1')).toBeInTheDocument();
+    });
+  });
+
+  it('edits an existing step', async () => {
+    // Add a step to the mock state
+    mockState.currentWalkthrough.steps = [
+      {
+        id: mockUUID,
+        title: 'Initial Step',
+        content: 'Initial Content',
+        targetElement: 'test-element',
+        position: { top: 0, left: 0, width: 100, height: 100 },
+        order: 0,
       },
-      { timeout: 2000 }
-    );
+    ];
+
+    renderEditor();
+
+    // Click edit button in the steps list
+    const editButton = screen.getByText('Edit');
+    fireEvent.click(editButton);
+
+    // Update step details in the StepBuilder
+    const stepBuilder = await screen.findByRole('dialog', { name: 'Edit Step' });
+    const titleInput = within(stepBuilder).getByLabelText('Title');
+    const contentInput = within(stepBuilder).getByLabelText('Content');
+
+    fireEvent.change(titleInput, { target: { value: 'Updated Step' } });
+    fireEvent.change(contentInput, { target: { value: 'Updated Content' } });
+
+    // Save the updated step
+    const saveButton = within(stepBuilder).getByText('Save');
+    fireEvent.click(saveButton);
+
+    // Verify step is updated
+    await waitFor(() => {
+      const stepItem = screen.getByText((content, element) => {
+        return element?.textContent === '1. Updated Step';
+      });
+      expect(stepItem).toBeInTheDocument();
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'UPDATE_STEP',
+      payload: expect.objectContaining({
+        title: 'Updated Step',
+        content: 'Updated Content',
+      }),
+    });
+  });
+
+  it('deletes a step', async () => {
+    // Add a step to the mock state
+    mockState.currentWalkthrough.steps = [
+      {
+        id: mockUUID,
+        title: 'Test Step',
+        content: 'Test Content',
+        targetElement: 'test-element',
+        position: { top: 0, left: 0, width: 100, height: 100 },
+        order: 0,
+      },
+    ];
+
+    renderEditor();
+
+    // Click edit button in the steps list
+    const editButton = screen.getByText('Edit');
+    fireEvent.click(editButton);
+
+    // Click delete button in the StepBuilder
+    const stepBuilder = await screen.findByRole('dialog', { name: 'Edit Step' });
+    const deleteButton = within(stepBuilder).getByText('Delete');
+    fireEvent.click(deleteButton);
+
+    // Verify step is removed
+    await waitFor(() => {
+      const stepItem = screen.queryByText((content, element) => {
+        return element?.textContent === '1. Test Step';
+      });
+      expect(stepItem).not.toBeInTheDocument();
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'REMOVE_STEP',
+      payload: mockUUID,
+    });
   });
 });

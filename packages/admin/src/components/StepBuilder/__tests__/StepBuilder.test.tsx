@@ -24,7 +24,9 @@ describe('StepBuilder', () => {
   });
 
   it('renders with initial step data', () => {
-    render(<StepBuilder step={mockStep} onSave={() => {}} onCancel={() => {}} />);
+    render(
+      <StepBuilder step={mockStep} onSave={() => {}} onCancel={() => {}} onDelete={() => {}} />
+    );
     expect(screen.getByDisplayValue('Test Step')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Test Content')).toBeInTheDocument();
     expect(screen.getByDisplayValue('#test-element')).toBeInTheDocument();
@@ -32,7 +34,9 @@ describe('StepBuilder', () => {
 
   it('calls onSave with updated step data', () => {
     const handleSave = jest.fn();
-    render(<StepBuilder step={mockStep} onSave={handleSave} onCancel={() => {}} />);
+    render(
+      <StepBuilder step={mockStep} onSave={handleSave} onCancel={() => {}} onDelete={() => {}} />
+    );
 
     const titleInput = screen.getByLabelText('Title');
     const contentInput = screen.getByLabelText('Content');
@@ -51,7 +55,9 @@ describe('StepBuilder', () => {
 
   it('validates required fields before saving', () => {
     const handleSave = jest.fn();
-    render(<StepBuilder step={mockStep} onSave={handleSave} onCancel={() => {}} />);
+    render(
+      <StepBuilder step={mockStep} onSave={handleSave} onCancel={() => {}} onDelete={() => {}} />
+    );
 
     const titleInput = screen.getByLabelText('Title');
     const contentInput = screen.getByLabelText('Content');
@@ -67,11 +73,25 @@ describe('StepBuilder', () => {
 
   it('calls onCancel when cancel button is clicked', () => {
     const handleCancel = jest.fn();
-    render(<StepBuilder step={mockStep} onSave={() => {}} onCancel={handleCancel} />);
+    render(
+      <StepBuilder step={mockStep} onSave={() => {}} onCancel={handleCancel} onDelete={() => {}} />
+    );
 
     const cancelButton = screen.getByText('Cancel');
     fireEvent.click(cancelButton);
 
     expect(handleCancel).toHaveBeenCalled();
+  });
+
+  it('calls onDelete when delete button is clicked', () => {
+    const handleDelete = jest.fn();
+    render(
+      <StepBuilder step={mockStep} onSave={() => {}} onCancel={() => {}} onDelete={handleDelete} />
+    );
+
+    const deleteButton = screen.getByText('Delete');
+    fireEvent.click(deleteButton);
+
+    expect(handleDelete).toHaveBeenCalled();
   });
 });

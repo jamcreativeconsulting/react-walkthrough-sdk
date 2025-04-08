@@ -1,292 +1,215 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useWalkthrough } from '../../context/WalkthroughContext';
-import { StepBuilder } from '../StepBuilder/StepBuilder';
+import { Step } from '../../types/walkthrough';
 import { StepPreview } from '../StepPreview/StepPreview';
-import { Step, Walkthrough } from '../../types/walkthrough';
-import { ApiClientImpl } from '../../api/client';
-import { getElementSelector } from './elementSelector';
+import { StepBuilder } from '../StepBuilder/StepBuilder';
 import './PointAndClickEditor.css';
 
-interface Position {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
 export const PointAndClickEditor: React.FC = () => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [showStepBuilder, setShowStepBuilder] = useState(false);
-  const [selectedElementSelector, setSelectedElementSelector] = useState<string>('');
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [hoveredElement, setHoveredElement] = useState<HTMLElement | null>(null);
-  const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const { state, dispatch } = useWalkthrough();
+  const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const totalSteps = state.currentWalkthrough?.steps.length || 0;
 
   useEffect(() => {
-    const apiClient = new ApiClientImpl({
-      baseUrl: process.env.REACT_APP_API_URL || 'http://localhost:3000',
-      apiKey: process.env.REACT_APP_API_KEY || '',
-    });
-
-    const mockWalkthrough: Walkthrough = {
-      id: '1',
-      title: 'Test Walkthrough',
-      description: 'Test Description',
-      steps: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    dispatch({ type: 'SET_CURRENT_WALKTHROUGH', payload: mockWalkthrough });
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (!isSelecting) return;
-
-    const handleMouseOver = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.closest('.editor-controls') || target.closest('.step-builder-overlay')) return;
-
-      if (hoveredElement) {
-        hoveredElement.style.outline = '';
-      }
-      target.style.outline = '2px solid #3b82f6';
-      setHoveredElement(target);
-    };
-
-    const handleMouseOut = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.closest('.editor-controls') || target.closest('.step-builder-overlay')) return;
-
-      target.style.outline = '';
-      setHoveredElement(null);
-    };
-
-    document.addEventListener('mouseover', handleMouseOver);
-    document.addEventListener('mouseout', handleMouseOut);
-
-    return () => {
-      document.removeEventListener('mouseover', handleMouseOver);
-      document.removeEventListener('mouseout', handleMouseOut);
-      if (hoveredElement) {
-        hoveredElement.style.outline = '';
-      }
-    };
-  }, [isSelecting, hoveredElement]);
-
-  const handleElementClick = (event: React.MouseEvent<HTMLElement>) => {
-    if (showPreview || !isSelecting) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const target = event.target as HTMLElement;
-    if (target.closest('.editor-controls') || target.closest('.step-builder-overlay')) return;
-
-    if (hoveredElement) {
-      hoveredElement.style.outline = '';
+    if (saveMessage) {
+      const timer = setTimeout(() => setSaveMessage(null), 3000);
+      return () => clearTimeout(timer);
     }
-
-    const selector = getElementSelector(target);
-    const rect = target.getBoundingClientRect();
-
-    const position = {
-      top: rect.top,
-      left: rect.left,
-      width: rect.width,
-      height: rect.height,
-    };
-
-    setSelectedElementSelector(selector);
-    setSelectedPosition(position);
-    setShowStepBuilder(true);
-    setIsSelecting(false);
-  };
+  }, [saveMessage]);
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (showPreview || !isSelecting) return;
+    const handleClick = (e: MouseEvent) => {
+      if (!isEditing && editorRef.current) {
+        const target = e.target as HTMLElement;
+        if (!editorRef.current.contains(target)) {
+          // Check if there's already a step for this element
+          const existingStepIndex = state.currentWalkthrough?.steps.findIndex(
+            step => step.targetElement === (target.id || target.tagName.toLowerCase())
+          );
 
-      const target = event.target as HTMLElement;
-      if (target.closest('.editor-controls') || target.closest('.step-builder-overlay')) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (hoveredElement) {
-        hoveredElement.style.outline = '';
+          if (existingStepIndex !== undefined && existingStepIndex >= 0) {
+            setCurrentStepIndex(existingStepIndex);
+            setSelectedElement(target);
+          } else {
+            handleElementSelect(target);
+          }
+        }
       }
-
-      const selector = getElementSelector(target);
-      const rect = target.getBoundingClientRect();
-
-      const position = {
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-      };
-
-      setSelectedElementSelector(selector);
-      setSelectedPosition(position);
-      setShowStepBuilder(true);
-      setIsSelecting(false);
     };
 
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
-  }, [showPreview, isSelecting, hoveredElement]);
+  }, [isEditing, state.currentWalkthrough?.steps]);
 
-  const handleSaveStep = (step: Step) => {
-    if (!state.currentWalkthrough) return;
-
-    const newStep: Omit<Step, 'id'> = {
-      title: step.title,
-      content: step.content,
-      targetElement: selectedElementSelector,
-      position: selectedPosition!,
-      order: state.currentWalkthrough.steps.length + 1,
+  const handleElementSelect = (element: HTMLElement) => {
+    const newStep: Step = {
+      id: crypto.randomUUID(),
+      title: '',
+      content: '',
+      targetElement: element.id || element.tagName.toLowerCase(),
+      position: {
+        top: element.offsetTop,
+        left: element.offsetLeft,
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+      },
+      order: state.currentWalkthrough?.steps.length || 0,
+      completed: false,
     };
 
-    dispatch({
-      type: 'ADD_STEP',
-      payload: {
-        ...newStep,
-        id: Date.now().toString(),
-      },
-    });
+    // First add the step to create the walkthrough if needed
+    dispatch({ type: 'ADD_STEP', payload: newStep });
 
-    setTimeout(() => {
-      setShowStepBuilder(false);
-      setSelectedElementSelector('');
-      setSelectedPosition(null);
-    }, 0);
+    // Then set the UI state
+    setSelectedElement(element);
+    setIsEditing(true);
+    setCurrentStepIndex(state.currentWalkthrough?.steps.length || 0);
   };
 
-  const handleCancelStep = () => {
-    setShowStepBuilder(false);
-    setSelectedElementSelector('');
-    setSelectedPosition(null);
-    setIsSelecting(false);
-  };
-
-  const handleNextStep = () => {
-    if (!state.currentWalkthrough?.steps.length) return;
-    setActiveStepIndex(prev =>
-      prev < state.currentWalkthrough!.steps.length - 1 ? prev + 1 : prev
-    );
-  };
-
-  const handlePreviousStep = () => {
-    setActiveStepIndex(prev => (prev > 0 ? prev - 1 : prev));
-  };
-
-  const handleSkip = () => {
-    if (!state.currentWalkthrough?.steps.length) return;
-
-    // Mark current step as completed
-    dispatch({
-      type: 'MARK_STEP_COMPLETED',
-      payload: {
-        stepId: state.currentWalkthrough.steps[activeStepIndex].id,
-        completed: true,
-      },
-    });
-
-    // If this was the last step, close the preview
-    if (activeStepIndex === state.currentWalkthrough.steps.length - 1) {
-      setShowPreview(false);
-    } else {
-      // Otherwise move to next step
-      setActiveStepIndex(prev => prev + 1);
+  const handlePrevStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
     }
   };
 
+  const handleNextStep = () => {
+    if (currentStepIndex < totalSteps - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+      dispatch({
+        type: 'UPDATE_STEP',
+        payload: {
+          ...state.currentWalkthrough!.steps[currentStepIndex],
+          completed: true,
+        },
+      });
+    }
+  };
+
+  const handleSkipStep = () => {
+    if (currentStepIndex < totalSteps - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setSelectedElement(null);
+    setIsEditing(false);
+  };
+
+  const handleSaveStep = (step: Step) => {
+    if (state.currentWalkthrough?.steps.some(s => s.id === step.id)) {
+      dispatch({ type: 'UPDATE_STEP', payload: step });
+      setSaveMessage('Step updated successfully!');
+    } else {
+      dispatch({ type: 'ADD_STEP', payload: step });
+      setSaveMessage('Step added successfully!');
+    }
+    setIsEditing(false);
+  };
+
+  const handleEditStep = (index: number) => {
+    setCurrentStepIndex(index);
+    setIsEditing(true);
+  };
+
+  const handleDeleteStep = (stepId: string) => {
+    dispatch({ type: 'REMOVE_STEP', payload: stepId });
+    setIsEditing(false);
+  };
+
   return (
-    <>
-      <div className="editor-controls">
-        <button onClick={() => setShowPreview(!showPreview)}>
-          {showPreview ? 'Hide Preview' : 'Show Preview'}
-        </button>
-        <button onClick={() => setIsSelecting(true)} className={isSelecting ? 'active' : ''}>
-          Select Element
-        </button>
+    <div ref={editorRef} className="point-and-click-editor">
+      <div className="editor-header">
+        <h2>Point and Click Editor</h2>
+        <div className="editor-controls">
+          <button onClick={() => setIsEditing(false)}>Cancel</button>
+          <button
+            onClick={() => {
+              if (state.currentWalkthrough) {
+                dispatch({
+                  type: 'SET_WALKTHROUGHS',
+                  payload: [...state.walkthroughs, state.currentWalkthrough],
+                });
+                setSaveMessage('Walkthrough saved successfully!');
+              }
+            }}
+          >
+            Save
+          </button>
+        </div>
       </div>
 
-      {isSelecting && (
-        <div className="selection-mode-indicator">Click on any element to create a step</div>
-      )}
+      {saveMessage && <div className="save-message">{saveMessage}</div>}
 
-      {showStepBuilder && selectedPosition && (
-        <div
-          className="step-builder-overlay"
-          style={{
-            top: selectedPosition.top,
-            left: selectedPosition.left,
-          }}
-        >
-          <StepBuilder
-            step={{
-              id: '',
-              title: '',
-              content: '',
-              targetElement: selectedElementSelector,
-              position: selectedPosition,
-              order: state.currentWalkthrough?.steps.length || 0,
-            }}
-            onSave={handleSaveStep}
-            onCancel={handleCancelStep}
-          />
-        </div>
-      )}
-
-      {showPreview && state.currentWalkthrough?.steps[activeStepIndex] && (
-        <StepPreview
-          step={state.currentWalkthrough.steps[activeStepIndex]}
-          isActive={true}
-          onClose={() => setShowPreview(false)}
-          onPrevious={handlePreviousStep}
-          onNext={handleNextStep}
-          onSkip={handleSkip}
-          isFirstStep={activeStepIndex === 0}
-          isLastStep={activeStepIndex === (state.currentWalkthrough?.steps.length || 0) - 1}
-        />
-      )}
-
-      {showPreview &&
-        state.currentWalkthrough?.steps &&
+      {state.currentWalkthrough &&
+        state.currentWalkthrough.steps &&
         state.currentWalkthrough.steps.length > 0 && (
-          <div className="preview-navigation">
-            <button onClick={handlePreviousStep} disabled={activeStepIndex === 0}>
-              Previous
-            </button>
-            <span>
-              Step {activeStepIndex + 1} of {state.currentWalkthrough.steps.length}
-            </span>
-            <button
-              onClick={handleNextStep}
-              disabled={activeStepIndex === state.currentWalkthrough.steps.length - 1}
-            >
-              Next
-            </button>
+          <div className="steps-list">
+            <h3>Steps ({totalSteps})</h3>
+            {state.currentWalkthrough.steps.map((step, index) => (
+              <div key={step.id} className="step-item">
+                <span>
+                  {index + 1}. {step.title || 'Untitled Step'}
+                </span>
+                <div className="step-actions">
+                  <button onClick={() => handleEditStep(index)}>Edit</button>
+                  <button onClick={() => handleDeleteStep(step.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-      <div className="point-and-click-editor" ref={editorRef}>
-        {state.currentWalkthrough?.steps.map(step => (
-          <div key={step.id} className="step-marker">
-            <div className="step-info">
-              <h3>{step.title}</h3>
-              <p>{step.content}</p>
-              <p className="target-info">Target: {step.targetElement}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+      {isEditing && (state.currentWalkthrough?.steps[currentStepIndex] || selectedElement) && (
+        <StepBuilder
+          step={
+            state.currentWalkthrough?.steps[currentStepIndex] || {
+              id: crypto.randomUUID(),
+              title: '',
+              content: '',
+              targetElement: selectedElement?.id || selectedElement?.tagName.toLowerCase() || '',
+              position: selectedElement
+                ? {
+                    top: selectedElement.offsetTop,
+                    left: selectedElement.offsetLeft,
+                    width: selectedElement.offsetWidth,
+                    height: selectedElement.offsetHeight,
+                  }
+                : { top: 0, left: 0, width: 0, height: 0 },
+              order: state.currentWalkthrough?.steps.length || 0,
+              completed: false,
+            }
+          }
+          onSave={handleSaveStep}
+          onCancel={() => setIsEditing(false)}
+          onDelete={() => {
+            if (state.currentWalkthrough?.steps[currentStepIndex]) {
+              handleDeleteStep(state.currentWalkthrough.steps[currentStepIndex].id);
+            }
+          }}
+        />
+      )}
+
+      {selectedElement && state.currentWalkthrough?.steps[currentStepIndex] && !isEditing && (
+        <StepPreview
+          step={state.currentWalkthrough.steps[currentStepIndex]}
+          isActive={true}
+          onPrevious={handlePrevStep}
+          onNext={handleNextStep}
+          onSkip={handleSkipStep}
+          onClose={handleClosePreview}
+          isFirstStep={currentStepIndex === 0}
+          isLastStep={currentStepIndex === totalSteps - 1}
+          currentStepIndex={currentStepIndex}
+          totalSteps={totalSteps}
+        />
+      )}
+    </div>
   );
 };
 

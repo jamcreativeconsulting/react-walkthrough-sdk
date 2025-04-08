@@ -6,9 +6,10 @@ interface StepBuilderProps {
   step: Step;
   onSave: (step: Step) => void;
   onCancel: () => void;
+  onDelete: () => void;
 }
 
-export const StepBuilder: React.FC<StepBuilderProps> = ({ step, onSave, onCancel }) => {
+export const StepBuilder: React.FC<StepBuilderProps> = ({ step, onSave, onCancel, onDelete }) => {
   const [title, setTitle] = useState(step.title);
   const [content, setContent] = useState(step.content);
 
@@ -31,7 +32,7 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({ step, onSave, onCancel
   };
 
   return (
-    <div className="step-builder">
+    <div className="step-builder" role="dialog" aria-label="Edit Step">
       <h3>Edit Step</h3>
       <div className="form-group">
         <label htmlFor="title">Title</label>
@@ -64,6 +65,9 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({ step, onSave, onCancel
       <div className="button-group">
         <button onClick={handleSave}>Save</button>
         <button onClick={onCancel}>Cancel</button>
+        <button onClick={onDelete} className="delete-button">
+          Delete
+        </button>
       </div>
     </div>
   );

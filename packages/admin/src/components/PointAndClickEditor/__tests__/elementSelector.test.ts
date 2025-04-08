@@ -32,11 +32,14 @@ describe('getElementSelector', () => {
     const paragraphs = document.querySelectorAll('p');
     expect(paragraphs.length).toBe(3);
 
+    // First paragraph (with class)
+    expect(getElementSelector(paragraphs[0] as HTMLElement)).toBe('.test-paragraph');
+
     // Second paragraph (no class)
-    expect(getElementSelector(paragraphs[1] as HTMLElement)).toBe('p:nth-child(2)');
+    expect(getElementSelector(paragraphs[1] as HTMLElement)).toBe('p:nth-child(3)');
 
     // Third paragraph (no class)
-    expect(getElementSelector(paragraphs[2] as HTMLElement)).toBe('p:nth-child(3)');
+    expect(getElementSelector(paragraphs[2] as HTMLElement)).toBe('p:nth-child(4)');
   });
 
   it('returns unique selector for elements with same tag name', () => {
@@ -44,7 +47,7 @@ describe('getElementSelector', () => {
     expect(paragraphs.length).toBe(3);
 
     const selectors = Array.from(paragraphs).map(p => getElementSelector(p as HTMLElement));
-    expect(selectors).toEqual(['.test-paragraph', 'p:nth-child(2)', 'p:nth-child(3)']);
+    expect(selectors).toEqual(['.test-paragraph', 'p:nth-child(3)', 'p:nth-child(4)']);
   });
 
   it('returns id selector for elements with id', () => {
@@ -64,5 +67,82 @@ describe('getElementSelector', () => {
     const element = document.createElement('span');
     parent.appendChild(element);
     expect(getElementSelector(element)).toBe('span:nth-child(1)');
+  });
+
+  it('returns class selector for elements with class', () => {
+    document.body.innerHTML = `
+      <div>
+        <p class="test-paragraph">Test</p>
+      </div>
+    `;
+    const element = document.querySelector('.test-paragraph') as HTMLElement;
+    expect(getElementSelector(element)).toBe('.test-paragraph');
+  });
+
+  it('returns nth-child selector for elements without ID or classes', () => {
+    document.body.innerHTML = `
+      <div>
+        <p>First</p>
+        <p>Second</p>
+        <p>Third</p>
+      </div>
+    `;
+    const paragraphs = document.querySelectorAll('p');
+
+    // First paragraph
+    expect(getElementSelector(paragraphs[0] as HTMLElement)).toBe('p:nth-child(1)');
+
+    // Second paragraph
+    expect(getElementSelector(paragraphs[1] as HTMLElement)).toBe('p:nth-child(2)');
+
+    // Third paragraph
+    expect(getElementSelector(paragraphs[2] as HTMLElement)).toBe('p:nth-child(3)');
+  });
+
+  it('returns unique selector for elements with same tag name', () => {
+    document.body.innerHTML = `
+      <div>
+        <p class="test-paragraph">First</p>
+        <p>Second</p>
+        <p>Third</p>
+        <p>Fourth</p>
+      </div>
+    `;
+    const paragraphs = document.querySelectorAll('p');
+    const selectors = Array.from(paragraphs).map(p => getElementSelector(p as HTMLElement));
+    expect(selectors).toEqual([
+      '.test-paragraph',
+      'p:nth-child(2)',
+      'p:nth-child(3)',
+      'p:nth-child(4)',
+    ]);
+  });
+
+  it('returns id selector for elements with id', () => {
+    document.body.innerHTML = `
+      <p id="test-id">Test</p>
+    `;
+    const element = document.querySelector('#test-id') as HTMLElement;
+    expect(getElementSelector(element)).toBe('#test-id');
+  });
+
+  it('prefers id selector over class selector', () => {
+    document.body.innerHTML = `
+      <p id="test-id" class="test-class">Test</p>
+    `;
+    const element = document.querySelector('#test-id') as HTMLElement;
+    expect(getElementSelector(element)).toBe('#test-id');
+  });
+
+  it('prefers class selector over nth-child selector', () => {
+    document.body.innerHTML = `
+      <div>
+        <p>First</p>
+        <p class="test-class">Second</p>
+        <p>Third</p>
+      </div>
+    `;
+    const element = document.querySelector('.test-class') as HTMLElement;
+    expect(getElementSelector(element)).toBe('.test-class');
   });
 });
